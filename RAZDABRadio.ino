@@ -284,7 +284,7 @@ void loop() {
     for (int i=0; i<sizeof(buttons)/sizeof(buttons[0]); i++) {
       if ((buttons[i].pageNo&showVal)>0){
         if (x >= buttons[i].xPos && x <= buttons[i].xPos+buttons[i].width && y >= buttons[i].yPos && y <= buttons[i].yPos+buttons[i].height){
-          delay(50);
+          delay(100);
           HandleButton(buttons[i],x,y);
         }
       }
@@ -557,7 +557,7 @@ void DrawKeyboardNumber(bool doReset){
   if (doReset) keyboardNumber = 0;
   int f1 = floor(keyboardNumber/10000);
   int f2 = keyboardNumber-(f1*10000);
-  sprintf(buf,"%1d",keyboardNumber);
+  sprintf(buf,"%8d",keyboardNumber);
   tft.setTextPadding(tft.textWidth(buf));
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
   tft.drawString(buf, 282,60,7);
@@ -877,8 +877,13 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   }
 
   if (button.name=="Clear") {
-    actualPage = 1;
-    if (doDraw) DrawScreen();
+    if (keyboardNumber>0){
+      keyboardNumber = 0;
+      if (doDraw) DrawKeyboardNumber(false);
+    } else {
+      actualPage = 1;
+      if (doDraw) DrawScreen();
+    }
   }
 }
 
