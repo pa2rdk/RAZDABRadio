@@ -1,15 +1,12 @@
 const wlanSSID wifiNetworks[] {
     {"PI4RAZ","PI4RAZ_Zoetermeer"},
-    {"Loretz_Gast", "Lor_Steg_98"},
-    {"MARODEKWiFi2", "MAROWiFi19052004!2"},
-    {"FHanna", "Kleinsteg71"},
-    {"iPhone van Robert", "0919932003"}
+    {"Loretz_Gast", "Lor_Steg_98"}
 };
 
 Settings settings = {
     '@',                //chkDigit
-    "MARODEKWiFi",      //wifiSSID[25];
-    "MAROWiFi19052004!",//wifiPass[25];
+    "YourSSID",         //wifiSSID[25];
+    "WiFiPassword",     //wifiPass[25];
     63,                 //volume
     1,                  //isDAB
     1,                  //isStereo

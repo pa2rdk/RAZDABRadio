@@ -137,7 +137,7 @@ const int ledFreq          = 5000;
 const int ledResol         = 8;
 const int ledChannelforTFT = 0;
 
-#include "config.h";     
+#include "rdk_config.h";                  // Change to config.h  
 
 DAB Dab;
 TFT_eSPI tft = TFT_eSPI();            // Invoke custom library
