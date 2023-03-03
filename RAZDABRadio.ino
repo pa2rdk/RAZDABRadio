@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////
-// V0.1
-//
+// V0.2 BackLight
+// V0.1 Initial
 //
 //  *********************************
 //  **   Display connections       **
@@ -16,7 +16,7 @@
 //  |   D/C      |      2           | 
 //  |   SDI      |     23           | 
 //  |   SCK      |     18           | 
-//  |   LED Coll.|     To Be arr.   | 
+//  |   LED Coll.|     13.   | 
 //  |   SDO      |                  | 
 //  |   T_CLK    |     18           |
 //  |   T_CS     |      5           |
@@ -48,7 +48,7 @@ const char *const audiomode[]  = {mode_0,mode_1,mode_2,mode_3};
 #define BTN_ARROW       2048
 #define BTN_NUMERIC     1024
 
-//#define DISPLAYLEDPIN   14
+#define DISPLAYLEDPIN   13
 
 #define TFT_GREY 0x5AEB
 #define TFT_LIGTHYELLOW 0xFF10
@@ -156,10 +156,11 @@ long startTime = millis();
 long pressTime = millis();
 bool wifiAvailable = false;
 bool wifiAPMode = false;
+bool isOn = true;
 
 void setup() {
-  // pinMode(DISPLAYLEDPIN, OUTPUT);
-  // digitalWrite(DISPLAYLEDPIN, 0);
+  pinMode(DISPLAYLEDPIN, OUTPUT);
+  digitalWrite(DISPLAYLEDPIN, 0);
 
   Serial.begin(115200);
   while(!Serial);
@@ -167,8 +168,8 @@ void setup() {
   Serial.print(F("PI4RAZ DAB\n\n")); 
   Serial.print(F("Initializing....."));
 
-  // ledcSetup(ledChannelforTFT, ledFreq, ledResol);
-  // ledcAttachPin(DISPLAYLEDPIN, ledChannelforTFT);
+  ledcSetup(ledChannelforTFT, ledFreq, ledResol);
+  ledcAttachPin(DISPLAYLEDPIN, ledChannelforTFT);
 
   //Enable SPI
   pinMode(slaveSelectPin, OUTPUT);
@@ -252,6 +253,7 @@ void setup() {
     Dab.tune((uint16_t)(settings.fmFreq/10));
     activeBtn=FindButtonIDByName("Tune");
   }
+  ledcWrite(ledChannelforTFT, 256-(settings.currentBrightness*2.56));
   DrawScreen();
 }
 
@@ -295,6 +297,7 @@ void loop() {
   }
 
   Dab.task();
+  WaitForWakeUp();
 }
 
 
@@ -640,7 +643,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (settings.currentBrightness<100) settings.currentBrightness+=5;
       if (settings.currentBrightness>100) settings.currentBrightness=100;
       if (doDraw) DrawButton("Light");
-      //ledcWrite(ledChannelforTFT, 256-(settings.currentBrightness*2.56));
+      ledcWrite(ledChannelforTFT, 256-(settings.currentBrightness*2.56));
     }
     if (doDraw) DrawButton("Navigate");
   }
@@ -692,7 +695,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (settings.currentBrightness>5) settings.currentBrightness-=5;
       if (settings.currentBrightness<5) settings.currentBrightness=5;
       if (doDraw) DrawButton("Light");
-      //ledcWrite(ledChannelforTFT, 256-(settings.currentBrightness*2.56));
+      ledcWrite(ledChannelforTFT, 256-(settings.currentBrightness*2.56));
     }
     if (doDraw) DrawButton("Navigate");
   }
@@ -826,7 +829,10 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   }
 
   if (button.name=="Off") {
-    //To be implemented
+    isOn = false;
+    actualPage=1;
+    DoTurnOff();
+    delay(500);
   }
 
   if (String(button.name).substring(0,3) =="A00") {
@@ -887,6 +893,24 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       actualPage = 1;
       if (doDraw) DrawScreen();
     }
+  }
+}
+
+/***************************************************************************************
+**            Turn off
+***************************************************************************************/
+void DoTurnOff(){
+  ledcWrite(ledChannelforTFT, 255);
+  tft.fillScreen(TFT_BLACK);
+  Dab.mute(1,1);
+}
+
+void WaitForWakeUp(){
+  while (!isOn){
+    //esp_task_wdt_reset();
+    uint16_t x = 0, y = 0;
+    bool pressed = tft.getTouch(&x, &y);
+    if (pressed) ESP.restart();
   }
 }
 
