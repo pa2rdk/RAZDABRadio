@@ -153,6 +153,7 @@ char buf[300] = "\0";
 long lastTime = millis();
 long saveTime = millis();
 long startTime = millis();
+long pressTime = millis();
 bool wifiAvailable = false;
 bool wifiAPMode = false;
 
@@ -237,15 +238,17 @@ void setup() {
   } 
 
   settings.isMuted=0;
-  Dab.vol(settings.volume);
-  Dab.mono(!settings.isStereo);
   if (settings.isDab){
     Dab.begin(0);
+    Dab.vol(settings.volume);
+    Dab.mono(!settings.isStereo);
     Dab.tune(settings.dabChannel);
     Dab.set_service(settings.dabService);
     activeBtn=FindButtonIDByName("Service");
   } else {
     Dab.begin(1);
+    Dab.vol(settings.volume);
+    Dab.mono(!settings.isStereo);
     Dab.tune((uint16_t)(settings.fmFreq/10));
     activeBtn=FindButtonIDByName("Tune");
   }
@@ -265,27 +268,27 @@ bool Connect2WiFi(){
 }
 
 void loop() {
-  delay(10);
-
   if (millis()-lastTime>1000 && actualPage<lastPage){
     DrawTime();
     lastTime= millis();
   }
 
-  if (millis()-saveTime>10000){
+  if (millis()-saveTime>2000){
     saveTime = millis();
     if (!CompareConfig()) SaveConfig();
   }
 
-  uint16_t x = 0, y = 0;
-  bool pressed = tft.getTouch(&x, &y);
-  if (pressed) {
-    int showVal = ShowControls();
-    for (int i=0; i<sizeof(buttons)/sizeof(buttons[0]); i++) {
-      if ((buttons[i].pageNo&showVal)>0){
-        if (x >= buttons[i].xPos && x <= buttons[i].xPos+buttons[i].width && y >= buttons[i].yPos && y <= buttons[i].yPos+buttons[i].height){
-          delay(100);
-          HandleButton(buttons[i],x,y);
+  if (millis()-pressTime>100){
+    uint16_t x = 0, y = 0;
+    bool pressed = tft.getTouch(&x, &y);
+    if (pressed) {
+      int showVal = ShowControls();
+      for (int i=0; i<sizeof(buttons)/sizeof(buttons[0]); i++) {
+        if ((buttons[i].pageNo&showVal)>0){
+          if (x >= buttons[i].xPos && x <= buttons[i].xPos+buttons[i].width && y >= buttons[i].yPos && y <= buttons[i].yPos+buttons[i].height){
+            HandleButton(buttons[i],x,y);
+            pressTime = millis();
+          }
         }
       }
     }
@@ -619,14 +622,12 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       }
       if (doDraw) DrawButtons();
       DrawFrequency();
-      delay(200);
     }
     else if (activeBtn==FindButtonIDByName("Service")){
       if (settings.isDab && settings.dabService<Dab.numberofservices - 1) settings.dabService++;
       Dab.set_service(settings.dabService);
       if (doDraw) DrawButton("Service");
       DrawFrequency();
-      delay(200);
     }
     else if (activeBtn==FindButtonIDByName("Vol")){
       if (settings.volume<63) settings.volume++;
@@ -673,14 +674,12 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       }
       if (doDraw) DrawButtons();
       DrawFrequency();
-      delay(200);
     }
     else if (activeBtn==FindButtonIDByName("Service")){
       if (settings.isDab && settings.dabService>0) settings.dabService--;
       Dab.set_service(settings.dabService);
       if (doDraw) DrawButton("Service");
       DrawFrequency();
-      delay(200);
     }
     else if (activeBtn==FindButtonIDByName("Vol")){
       if (settings.volume>0) settings.volume--;
@@ -724,11 +723,15 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     settings.isDab = !settings.isDab;
     if (settings.isDab){
       Dab.begin(0);
+      Dab.vol(settings.volume);
+      Dab.mono(!settings.isStereo);
       Dab.tune(settings.dabChannel);
       Dab.set_service(settings.dabService);
       activeBtn=FindButtonIDByName("Service");
     } else {
       Dab.begin(1);
+      Dab.vol(settings.volume);
+      Dab.mono(!settings.isStereo);
       Dab.tune((uint16_t)(settings.fmFreq/10));
       activeBtn=FindButtonIDByName("Tune");
     }
@@ -823,7 +826,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   }
 
   if (button.name=="Off") {
-    delay(500);
+    //To be implemented
   }
 
   if (String(button.name).substring(0,3) =="A00") {
