@@ -4,7 +4,7 @@ const wlanSSID wifiNetworks[] {
 };
 
 Settings settings = {
-    '#',                //chkDigit
+    '%',                //chkDigit
     "YourSSID",         //wifiSSID[25];
     "WiFiPassword",     //wifiPass[25];
     63,                 //volume
@@ -13,8 +13,10 @@ Settings settings = {
     0,                  //isMuted
     0,                  //dabChannel
     0,                  //dabService
+    0,                  //dabServiceID
     87500,              //fmFreq
     0,                  //memoryChannel
+    0,                 //activeBtn
     100,                //currentBrightness
     0                   //isDebug
 };
