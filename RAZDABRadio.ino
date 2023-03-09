@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.6 Select memory position
 // V0.5 Layout changes, Memories, Meters
 // V0.4 Layout changes, Memories, Extended info
 // V0.3 Better tuning
@@ -281,8 +282,6 @@ byte findChannelOnDabServiceID(uint16_t dabServiceID){
   Serial.printf("DabService:%d, QTY:%d",dabServiceID, Dab.numberofservices);
   Serial.println();
   for (int i=0;i<Dab.numberofservices;i++){
-    Serial.printf("Service %d has ID %d",i, Dab.service[i].ServiceID);
-    Serial.println();
     if (Dab.service[i].ServiceID == dabServiceID) return i;
   }
   return 0;
@@ -627,13 +626,8 @@ void DrawMeter(int xPos, int yPos, int width, int height, int value, int minValu
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
 
   int scale = ((width - 6)*10) / (maxValue-minValue);
-  Serial.println(scale);
-  Serial.printf("%d, %d, %d, %d, %d, %d, %d, %d, %d", xPos, yPos, width, height, value, minValue, maxValue, maxValue-minValue, scale);
-  Serial.println();
   for (int i = 0; i<maxValue-minValue;i++){
     float mPos = ((i*scale)/10)+3+xPos;
-    Serial.printf("%f",mPos);
-    Serial.println();
     uint16_t signColor = TFT_RED;
     if (i<=value){
       if (i>(((maxValue-minValue)*orangeColorPCT)/100)) signColor = TFT_YELLOW;
@@ -927,13 +921,10 @@ void HandleButton(Button button, int x, int y, bool doDraw){
 
   if (button.name=="Save"){
     if (settings.activeBtn!=FindButtonIDByName("MEM")){
-      Serial.println("SaveButton");
-      Memory myMemory = {settings.isDab, settings.isStereo, settings.dabChannel, settings.dabServiceID, settings.fmFreq};
-      memories[settings.memoryChannel] = myMemory;
-      SetRadioFromMemory(settings.memoryChannel);
-      SaveMemories();
-      if (doDraw) DrawFrequency();
-      if (doDraw) DrawButton("MEM");
+      settings.activeBtn=FindButtonIDByName("Save");
+      keyboardNumber = 0; //settings.memoryChannel;
+      actualPage = BTN_NUMERIC;
+      if (doDraw) DrawScreen();
     }
   }
 
@@ -994,6 +985,9 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     if (settings.activeBtn==FindButtonIDByName("MEM")){
       if (keyboardNumber>9) keyboardNumber=0;
     } 
+    if (settings.activeBtn==FindButtonIDByName("Save")){
+      if (keyboardNumber>9) keyboardNumber=0;
+    }
     if (doDraw) DrawKeyboardNumber(false);
   }
 
@@ -1031,7 +1025,15 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       settings.memoryChannel=keyboardNumber; 
       SetRadioFromMemory(settings.memoryChannel);
     } 
-
+    if (settings.activeBtn==FindButtonIDByName("Save")){
+      settings.memoryChannel=keyboardNumber;
+      Serial.printf("SaveButton:%d\r\n",settings.memoryChannel);
+      Memory myMemory = {settings.isDab, settings.isStereo, settings.dabChannel, settings.dabServiceID, settings.fmFreq};
+      memories[settings.memoryChannel] = myMemory;
+      SetRadioFromMemory(settings.memoryChannel);
+      SaveMemories();
+      settings.activeBtn=FindButtonIDByName("MEM");
+    }
     actualPage = 1;
     if (doDraw) DrawScreen();
   }
