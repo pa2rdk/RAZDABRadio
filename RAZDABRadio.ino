@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.61 Solved error in memory display
 // V0.6 Select memory position
 // V0.5 Layout changes, Memories, Meters
 // V0.4 Layout changes, Memories, Extended info
@@ -403,6 +404,7 @@ void DrawFrequency(){
       tft.setTextPadding(tft.textWidth(buf));
       tft.drawString(buf, 2,14,1);
       tft.setTextColor(TFT_CYAN, TFT_BLACK);
+      Serial.printf("Draw fequency:%d,%d,%s\r\n",Dab.service[actualDabService].ServiceID,actualDabService,Dab.service[actualDabService].Label);
       if (Dab.numberofservices>0) tft.drawString(Dab.service[actualDabService].Label, 2,45,4);
     }
     if (!settings.isDab){
@@ -630,7 +632,7 @@ void DrawMeter(int xPos, int yPos, int width, int height, int value, int minValu
     float mPos = ((i*scale)/10)+3+xPos;
     uint16_t signColor = TFT_RED;
     if (i<=value){
-      if (i>(((maxValue-minValue)*orangeColorPCT)/100)) signColor = TFT_YELLOW;
+      if (i>(((maxValue-minValue)*orangeColorPCT)/100)) signColor = TFT_ORANGE;
       if (i>(((maxValue-minValue)*greenColorPCT)/100)) signColor = TFT_GREEN;
       tft.fillRect(mPos, yPos+2, (scale/10)+1, height-4, signColor);
     }
@@ -698,9 +700,9 @@ void HandleButton(Button button, int x, int y, bool doDraw){
         Dab.seek(1,1);
         settings.fmFreq = Dab.freq*10;
         Serial.println(settings.fmFreq);
+        DrawFrequency();
       }
       if (doDraw) DrawButtons();
-      DrawFrequency();
     }
     else if (settings.activeBtn==FindButtonIDByName("Service")){
       if (settings.isDab && actualDabService<Dab.numberofservices - 1){
@@ -712,7 +714,6 @@ void HandleButton(Button button, int x, int y, bool doDraw){
         settings.activeBtn=FindButtonIDByName("Tune");
       }
       if (doDraw) DrawButtons();
-      DrawFrequency();
     }
     else if (settings.activeBtn==FindButtonIDByName("Vol")){
       if (settings.volume<63) settings.volume++;
@@ -766,9 +767,9 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (!settings.isDab){
         Dab.seek(0,1);
         settings.fmFreq = Dab.freq*10;
+        DrawFrequency();
       }
       if (doDraw) DrawButtons();
-      DrawFrequency();
     }
     else if (settings.activeBtn==FindButtonIDByName("Service")){
       if (settings.isDab && actualDabService>0){
@@ -780,7 +781,6 @@ void HandleButton(Button button, int x, int y, bool doDraw){
         settings.activeBtn=FindButtonIDByName("Tune");
       }
       if (doDraw) DrawButtons();
-      DrawFrequency();
     }
     else if (settings.activeBtn==FindButtonIDByName("Vol")){
       if (settings.volume>0) settings.volume--;
@@ -831,7 +831,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       settings.activeBtn=FindButtonIDByName("Service");
     else
       settings.activeBtn=FindButtonIDByName("Tune");
-    if (doDraw) DrawScreen();
+    if (doDraw) DrawButtons();
   }
 
   if (button.name=="Tune"){
@@ -1055,10 +1055,10 @@ void SetRadioFromMemory(int channel){
   settings.isStereo = memories[channel].isStereo;
   settings.dabChannel = memories[channel].dabChannel;
   settings.dabServiceID = memories[channel].dabServiceID;
-  actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
   settings.fmFreq = memories[channel].fmFreq;
   SetRadio();
-  DrawScreen();
+  if (settings.isDab) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
+  Serial.printf("Set from Memory: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
 }
 
 void SetRadio(){
@@ -1066,8 +1066,7 @@ void SetRadio(){
 }
 
 void SetRadio(bool firstTime){
-  Serial.printf("DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
-  Serial.println();
+  Serial.printf("Set from Radio: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
 
   bool doTune = false;
   if (actualIsDab != settings.isDab || firstTime){
@@ -1092,6 +1091,7 @@ void SetRadio(bool firstTime){
     if (actualDabChannel != settings.dabChannel || firstTime || doTune){
       actualDabChannel = settings.dabChannel;
       Dab.tune(settings.dabChannel);
+      Serial.printf("Dab channel set to %d\r\n",actualDabChannel);
     }
     if (firstTime) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
     Dab.set_service(findChannelOnDabServiceID(settings.dabServiceID));
@@ -1101,6 +1101,7 @@ void SetRadio(bool firstTime){
       Dab.tune((uint16_t)(settings.fmFreq/10));
     }
   }
+  if (!firstTime) DrawFrequency();
 }
 
 void SetMute(){
