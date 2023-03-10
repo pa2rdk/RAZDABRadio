@@ -445,7 +445,7 @@ void DrawStatus(){
   tft.drawString(buf, 315, 4, 1);
 
   DrawMeter(2,78,154,16,Dab.signalstrength,10,75,50,75,"RSSI:");
-  DrawMeter(162,78,154,16,Dab.snr,0,15,50,75,"SNR:");
+  DrawMeter(162,78,154,16,Dab.snr,0,20,50,75,"SNR:");
 }
 
 void DrawButtons(){
