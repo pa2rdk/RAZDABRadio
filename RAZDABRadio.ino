@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.63 SNR meter
 // V0.62 Solved volume bug
 // V0.61 Solved error in memory display
 // V0.6 Select memory position
@@ -444,7 +445,7 @@ void DrawStatus(){
   tft.drawString(buf, 315, 4, 1);
 
   DrawMeter(2,78,154,16,Dab.signalstrength,10,75,50,75,"RSSI:");
-  DrawMeter(162,78,154,16,Dab.quality,10,75,50,75,"Q:");
+  DrawMeter(162,78,154,16,Dab.snr,0,15,50,75,"SNR:");
 }
 
 void DrawButtons(){
