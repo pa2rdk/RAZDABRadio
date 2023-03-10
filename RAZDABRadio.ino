@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.62 Solved volume bug
 // V0.61 Solved error in memory display
 // V0.6 Select memory position
 // V0.5 Layout changes, Memories, Meters
@@ -1073,6 +1074,7 @@ void SetRadio(bool firstTime){
     actualIsDab = settings.isDab;
     doTune = true;
     Dab.begin(settings.isDab?0:1);
+    Dab.vol(settings.volume);
   }
 
   if (actualDabVol != settings.volume || firstTime){
