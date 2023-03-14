@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.7 DAB Channels
 // V0.63 SNR meter
 // V0.62 Solved volume bug
 // V0.61 Solved error in memory display
@@ -92,6 +93,12 @@ typedef struct {
 } Memory;
 
 typedef struct {
+  uint8_t dabChannel;
+  uint16_t dabServiceID;
+  char dabName[40];
+} DABChannel;
+
+typedef struct {
   byte chkDigit;
   char wifiSSID[25];
   char wifiPass[25];
@@ -124,7 +131,7 @@ const Button buttons[] = {
 
     {"Info","Info","",          1,  2,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
     {"Light","Light","",        1, 82,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Calibrate","Calibrate","",1,162,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
+    {"LoadList","Channels","",  1,162,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
     // {"Scan","Scan","",          1, 82,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
     // {"Time","Time","",          1,162,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
     {"Stereo","Stereo","",      1,242,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
@@ -141,6 +148,8 @@ const Button buttons[] = {
     {"Clear","Clear","",BTN_NUMERIC, 42,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
     {"A000","0","",     BTN_NUMERIC,122,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR},       
     {"Enter","Enter","",BTN_NUMERIC,202,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR},  
+    {"A00M","-","",     BTN_NUMERIC,  2,100,35,137, TFT_BLUE, TFT_BUTTONCOLOR},
+    {"A00P","+","",     BTN_NUMERIC,282,100,35,137, TFT_BLUE, TFT_BUTTONCOLOR},
 
     // {"Prev","Prev","",     BTN_PREV,  2,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
     // {"Next","Next","",     BTN_NEXT,242,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
@@ -176,6 +185,9 @@ bool isOn = true;
 char actualInfo[100] = "\0";
 char lastInfo[100] = "\0";
 int services[20] = {};
+DABChannel* dabChannels = 0;
+int dabChannelsCount = 0;
+int dabChannelSelected = 0;
 
 bool actualIsDab = false;
 byte actualDabVol = 0;
@@ -579,6 +591,12 @@ Button FindButtonInfo(Button button){
     button.btnColor = settings.isDab?TFT_BLUE:TFT_GREY;
   }
 
+  if (button.name=="LoadList") {
+    sprintf(buttonBuf,"        ");
+    sprintf(buttonBuf,"%d/%d",dabChannelSelected,dabChannelsCount);
+    strcpy(button.waarde,buttonBuf);
+  }
+
   if (button.name=="Stereo") {  
     sprintf(buttonBuf,"%s",settings.isStereo?"Stereo":"Mono");
     strcpy(button.waarde,buttonBuf);
@@ -617,7 +635,15 @@ void DrawKeyboardNumber(bool doReset){
   sprintf(buf,"%8d",keyboardNumber);
   tft.setTextPadding(tft.textWidth(buf));
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-  tft.drawString(buf, 282,60,7);
+  tft.drawString(buf, 282,55,7);
+  if (settings.activeBtn==FindButtonIDByName("LoadList")){
+    tft.fillRect(0,82,315,12,TFT_BLACK);
+    tft.setTextDatum(MR_DATUM);
+    tft.setTextPadding(tft.textWidth(dabChannels[dabChannelSelected].dabName));
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.drawString(dabChannels[keyboardNumber].dabName, 282,88,2);
+    Serial.println(dabChannels[keyboardNumber].dabName);
+  }
 }
 
 /***************************************************************************************
@@ -732,6 +758,14 @@ void HandleButton(Button button, int x, int y, bool doDraw){
         if (doDraw) DrawButton("MEM");
       }
     }
+    else if (settings.activeBtn==FindButtonIDByName("LoadList")){
+      if (dabChannelSelected<dabChannelsCount-1){
+        dabChannelSelected++;
+        SetRadioFromList(dabChannelSelected);
+        if (doDraw) DrawFrequency();
+        if (doDraw) DrawButton("LoadList");
+      }
+    }
     else if (settings.activeBtn==FindButtonIDByName("Light")){
       if (settings.currentBrightness<100) settings.currentBrightness+=5;
       if (settings.currentBrightness>100) settings.currentBrightness=100;
@@ -797,6 +831,14 @@ void HandleButton(Button button, int x, int y, bool doDraw){
         SetRadioFromMemory(settings.memoryChannel);
         if (doDraw) DrawFrequency();
         if (doDraw) DrawButton("MEM");
+      }
+    }
+    else if (settings.activeBtn==FindButtonIDByName("LoadList")){
+      if (dabChannelSelected>0){
+        dabChannelSelected--;
+        SetRadioFromList(dabChannelSelected);
+        if (doDraw) DrawFrequency();
+        if (doDraw) DrawButton("LoadList");
       }
     }
     else if (settings.activeBtn==FindButtonIDByName("Light")){
@@ -899,7 +941,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   if (button.name=="Service"){
     if (settings.isDab){
       if (settings.activeBtn==FindButtonIDByName("Service")){
-        keyboardNumber = 0; //actualDabService;
+        keyboardNumber = actualDabService;
         actualPage = BTN_NUMERIC;
         if (doDraw) DrawScreen();
       } else {
@@ -911,7 +953,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
 
   if (button.name=="MEM"){
     if (settings.activeBtn==FindButtonIDByName("MEM")){
-      keyboardNumber = 0; //settings.memoryChannel;
+      keyboardNumber = settings.memoryChannel;
       actualPage = BTN_NUMERIC;
       if (doDraw) DrawScreen();
     } else {
@@ -924,7 +966,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   if (button.name=="Save"){
     if (settings.activeBtn!=FindButtonIDByName("MEM")){
       settings.activeBtn=FindButtonIDByName("Save");
-      keyboardNumber = 0; //settings.memoryChannel;
+      keyboardNumber = settings.memoryChannel;
       actualPage = BTN_NUMERIC;
       if (doDraw) DrawScreen();
     }
@@ -940,6 +982,25 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     TouchCalibrate();
     actualPage=1;
     if (doDraw) DrawScreen();
+  }
+
+  if (button.name=="LoadList"){
+    if (dabChannelsCount==0) {
+      DrawPatience();
+      LoadList();
+      actualPage=1;
+      if (doDraw) DrawScreen();
+    } else {
+        if (settings.activeBtn==FindButtonIDByName("LoadList")){
+        keyboardNumber = dabChannelSelected;
+        actualPage = BTN_NUMERIC;
+        if (doDraw) DrawScreen();
+      } else {
+        SetRadioFromList(dabChannelSelected);
+        settings.activeBtn=FindButtonIDByName("LoadList");
+        if (doDraw) DrawButtons();
+      }
+    }
   }
 
   if (button.name=="Light"){
@@ -971,8 +1032,16 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   }
 
   if (String(button.name).substring(0,3) =="A00") {
-    int i = String(button.name).substring(3).toInt();
-    keyboardNumber = (keyboardNumber*10)+i;
+    if (String(button.name).substring(3)=="M"){
+      if (keyboardNumber>0) keyboardNumber--;
+    }
+    else if (String(button.name).substring(3)=="P") {
+      keyboardNumber++;
+    } 
+    else {
+      int i = String(button.name).substring(3).toInt();
+      keyboardNumber = (keyboardNumber*10)+i;
+    }
 
     if (settings.activeBtn==FindButtonIDByName("Tune")){
       if (settings.isDab && keyboardNumber>=DAB_FREQS) keyboardNumber=0;
@@ -989,6 +1058,9 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     } 
     if (settings.activeBtn==FindButtonIDByName("Save")){
       if (keyboardNumber>9) keyboardNumber=0;
+    }
+    if (settings.activeBtn==FindButtonIDByName("LoadList")){
+      if (keyboardNumber>dabChannelsCount) keyboardNumber=0;
     }
     if (doDraw) DrawKeyboardNumber(false);
   }
@@ -1027,6 +1099,10 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       settings.memoryChannel=keyboardNumber; 
       SetRadioFromMemory(settings.memoryChannel);
     } 
+    if (settings.activeBtn==FindButtonIDByName("LoadList")){
+      dabChannelSelected=keyboardNumber; 
+      SetRadioFromList(dabChannelSelected);
+    } 
     if (settings.activeBtn==FindButtonIDByName("Save")){
       settings.memoryChannel=keyboardNumber;
       Serial.printf("SaveButton:%d\r\n",settings.memoryChannel);
@@ -1061,6 +1137,17 @@ void SetRadioFromMemory(int channel){
   SetRadio();
   if (settings.isDab) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
   Serial.printf("Set from Memory: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
+}
+
+void SetRadioFromList(int channel){
+  DrawPatience();
+  settings.isDab = true;
+  settings.isStereo = true;
+  settings.dabChannel = dabChannels[channel].dabChannel;
+  settings.dabServiceID = dabChannels[channel].dabServiceID;
+  SetRadio();
+  if (settings.isDab) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
+  Serial.printf("Set from List: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
 }
 
 void SetRadio(){
@@ -1105,6 +1192,43 @@ void SetRadio(bool firstTime){
     }
   }
   if (!firstTime) DrawFrequency();
+}
+
+void addRec(int size){
+    if (dabChannels != 0) {
+      dabChannels = (DABChannel*) realloc(dabChannels, size * sizeof(DABChannel));
+    } else {
+      dabChannels = (DABChannel*) malloc(size * sizeof(DABChannel));
+    }
+}
+
+void LoadList(){
+  dabChannels = 0;
+  dabChannelsCount = 0;
+  for (uint8_t i=0;i<DAB_FREQS;i++){
+    sprintf(buf, "Even geduld...%d/%d",i,DAB_FREQS-1);
+    tft.drawString(buf, 0,30,4);
+    Serial.printf("ID:%d\r\n",i);
+    Dab.tune(i);
+    if (Dab.numberofservices>0){
+      for (int j=0; j<Dab.numberofservices;j++){
+        Serial.printf("ID:%d, Service:%d\r\n",i,j);
+        addRec(dabChannelsCount+1);
+        dabChannels[dabChannelsCount].dabChannel = i;
+        dabChannels[dabChannelsCount].dabServiceID = Dab.service[j].ServiceID;
+        sprintf(dabChannels[dabChannelsCount].dabName,"%s",Dab.service[j].Label);
+        dabChannelsCount++;
+      }
+    }
+  }
+
+  Serial.println("Show list");
+  for (int i = 0; i<dabChannelsCount;i++){
+    Serial.printf("ID %d = Channel:%d, ServiceID:%d, Name:%s\r\n",i,dabChannels[i].dabChannel,dabChannels[i].dabServiceID,dabChannels[i].dabName);
+  }
+
+  //qsort(dabChannels,dabChannelsCount,)
+  SetRadio(true);
 }
 
 void SetMute(){
