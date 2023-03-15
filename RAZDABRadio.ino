@@ -1,14 +1,15 @@
 ////////////////////////////////////////////////////////////
-// V0.7 DAB Channels
+// V0.71 Clear DAB Channels on Clear of keyboard
+// V0.70 DAB Channels
 // V0.63 SNR meter
 // V0.62 Solved volume bug
 // V0.61 Solved error in memory display
-// V0.6 Select memory position
-// V0.5 Layout changes, Memories, Meters
-// V0.4 Layout changes, Memories, Extended info
-// V0.3 Better tuning
-// V0.2 BackLight
-// V0.1 Initial
+// V0.60 Select memory position
+// V0.50 Layout changes, Memories, Meters
+// V0.40 Layout changes, Memories, Extended info
+// V0.30 Better tuning
+// V0.20 BackLight
+// V0.10 Initial
 //
 //  *********************************
 //  **   Display connections       **
@@ -881,7 +882,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   if (button.name=="Tune"){
     if (settings.isDab){
       if (settings.activeBtn==FindButtonIDByName("Tune")){
-        keyboardNumber = 0; //settings.dabChannel;
+        keyboardNumber = settings.dabChannel;
         actualPage = BTN_NUMERIC;
         if (doDraw) DrawScreen();
       } else {
@@ -1122,6 +1123,11 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (doDraw) DrawKeyboardNumber(false);
     } else {
       actualPage = 1;
+      if (settings.activeBtn==FindButtonIDByName("LoadList")){
+        dabChannelSelected=keyboardNumber;
+        dabChannelsCount=0;
+        dabChannels={};
+      }
       if (doDraw) DrawScreen();
     }
   }
