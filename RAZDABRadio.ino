@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.72 Small interface corrections
 // V0.71 Clear DAB Channels on Clear of keyboard
 // V0.70 DAB Channels
 // V0.63 SNR meter
@@ -594,7 +595,8 @@ Button FindButtonInfo(Button button){
 
   if (button.name=="LoadList") {
     sprintf(buttonBuf,"        ");
-    sprintf(buttonBuf,"%d/%d",dabChannelSelected,dabChannelsCount);
+    if (settings.activeBtn==FindButtonIDByName("LoadList")) sprintf(buttonBuf,"%d/%d",dabChannelSelected,dabChannelsCount);
+    else sprintf(buttonBuf,"%d",dabChannelsCount);
     strcpy(button.waarde,buttonBuf);
   }
 
@@ -764,7 +766,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
         dabChannelSelected++;
         SetRadioFromList(dabChannelSelected);
         if (doDraw) DrawFrequency();
-        if (doDraw) DrawButton("LoadList");
+        if (doDraw) DrawButtons();
       }
     }
     else if (settings.activeBtn==FindButtonIDByName("Light")){
@@ -839,7 +841,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
         dabChannelSelected--;
         SetRadioFromList(dabChannelSelected);
         if (doDraw) DrawFrequency();
-        if (doDraw) DrawButton("LoadList");
+        if (doDraw) DrawButtons();
       }
     }
     else if (settings.activeBtn==FindButtonIDByName("Light")){
@@ -1216,8 +1218,10 @@ void LoadList(){
     tft.drawString(buf, 0,30,4);
     Serial.printf("ID:%d\r\n",i);
     Dab.tune(i);
+    actualDabChannel=i;
     if (Dab.numberofservices>0){
       for (int j=0; j<Dab.numberofservices;j++){
+        actualDabService=j;
         Serial.printf("ID:%d, Service:%d\r\n",i,j);
         addRec(dabChannelsCount+1);
         dabChannels[dabChannelsCount].dabChannel = i;
@@ -1233,8 +1237,8 @@ void LoadList(){
     Serial.printf("ID %d = Channel:%d, ServiceID:%d, Name:%s\r\n",i,dabChannels[i].dabChannel,dabChannels[i].dabServiceID,dabChannels[i].dabName);
   }
 
-  //qsort(dabChannels,dabChannelsCount,)
-  SetRadio(true);
+  dabChannelSelected=0;
+  SetRadioFromList(0);
 }
 
 void SetMute(){
