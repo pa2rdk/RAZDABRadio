@@ -1,4 +1,5 @@
 ## Ignore files
 
 [Bb]uild/
+HybridRadio_v0.3/
 rdk_config.h

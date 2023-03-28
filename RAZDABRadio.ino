@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.80 The first logo's
 // V0.72 Small interface corrections
 // V0.71 Clear DAB Channels on Clear of keyboard
 // V0.70 DAB Channels
@@ -34,13 +35,36 @@
 //  |   T_DO     |     19           |
 //  |   T_IRQ    |     34           |
 //  |------------|------------------|
+//
+// Installing Libraries
+//
+// The Hybrid-Radio Project uses Libraries for various functionality.   These can be installed from Library Manager  (Tools | Manage Libraries).
+// DABShield - Version 1.5.3 or above
+// ArduinoJson by Benoit Blanchon - Version 6.19.4
+// PNGdec by Larry Bank - Version 1.0.1
+// the following libraries require manual installation:
+// N.V.T. DFRobot GDL - Require downloading the .zip Library  DFRobot_GDL Library and then added by Sketch |  Include Library |  Add .ZIP Library...
+// TinyXML-2 - Source Files downloaded from here: https://github.com/leethomason/tinyxml2  and added to a Folder TinyXML2 in your Arduino libraires directory (<Arduino Project Directory>/ libraries/TinyXML2).
+//
 ////////////////////////////////////////////////////////////
+#include <SPIFFS.h>
+#include "FS.h"
 #include <SPI.h>
 #include <WiFi.h>
 #include <WifiMulti.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <DABShield.h>
 #include <EEPROM.h>
 #include <TFT_eSPI.h>       // https://github.com/Bodmer/TFT_eSPI
+#include <ArduinoJson.h>
+#include <tinyxml2.h>
+#include <PNGdec.h>
+
+#include <pthread.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_pthread.h"
 
 #define offsetEEPROM       32
 #define EEPROM_SIZE        2048
@@ -101,6 +125,11 @@ typedef struct {
 } DABChannel;
 
 typedef struct {
+  uint16_t stationID;
+  const char *location;
+} DabLogoLocation;
+
+typedef struct {
   byte chkDigit;
   char wifiSSID[25];
   char wifiPass[25];
@@ -118,13 +147,11 @@ typedef struct {
 } Settings;
 
 const Button buttons[] = {
-    {"ToLeft","<<","",  BTN_ARROW,  2,208,154,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"ToRight",">>","", BTN_ARROW,162,208,154,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
+    {"ToLeft","<<","",  BTN_ARROW,  2,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+    {"ToRight",">>","", BTN_ARROW,242,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
 
     {"Vol","Vol","",            1,  2,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
     {"Mute","Mute","",          1, 82,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Mode","Mode","",          1,162,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Off","Off","",            1,242,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
 
     {"Tune","Scan","",          1,  2,136, 74,30, TFT_BLUE, TFT_WHITE},
     {"Service","Select","",    1, 82,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
@@ -132,11 +159,12 @@ const Button buttons[] = {
     {"Save","Save","",        1,242,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
 
     {"Info","Info","",          1,  2,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Light","Light","",        1, 82,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+    {"Mode","Mode","",          1, 82,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
     {"LoadList","Channels","",  1,162,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
-    // {"Scan","Scan","",          1, 82,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    // {"Time","Time","",          1,162,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
     {"Stereo","Stereo","",      1,242,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+
+    {"Light","Light","",        1, 82,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+    {"Off","Off","",            1,162,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
 
     {"A001","1","",     BTN_NUMERIC, 42,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
     {"A002","2","",     BTN_NUMERIC,122,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
@@ -152,12 +180,7 @@ const Button buttons[] = {
     {"Enter","Enter","",BTN_NUMERIC,202,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR},  
     {"A00M","-","",     BTN_NUMERIC,  2,100,35,137, TFT_BLUE, TFT_BUTTONCOLOR},
     {"A00P","+","",     BTN_NUMERIC,282,100,35,137, TFT_BLUE, TFT_BUTTONCOLOR},
-
-    // {"Prev","Prev","",     BTN_PREV,  2,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    // {"Next","Next","",     BTN_NEXT,242,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    // {"ToLeft","<<","",      BTN_NAV,  2,208,154,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    // {"ToRight",">>","",     BTN_NAV,162,208,154,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Navigate","Freq","",  BTN_NAV,  2,208,314,30, TFT_BLUE, TFT_BUTTONCOLOR},   
+ 
     {"Close","Close","",  BTN_CLOSE,122,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},     
 };
 
@@ -171,6 +194,7 @@ DAB Dab;
 TFT_eSPI tft = TFT_eSPI();            // Invoke custom library
 DABTime dabtime;
 WiFiMulti wifiMulti;
+PNG png;
 
 const byte slaveSelectPin = 12;
 int actualPage = 1;
@@ -200,6 +224,15 @@ int actualDabService = 0;
 uint32_t actualFmFreq = 87500;
 Memory memories[10] = {};
 
+StaticJsonDocument<48> filter;
+StaticJsonDocument<128> doc;
+// const char *Answer_0_data = doc["Answer"][0]["data"];  // "rdns.musicradio.com."
+
+char buff[1024];
+char *servicexml;
+char imageurl[128];
+char mime[32];
+
 void setup() {
   pinMode(DISPLAYLEDPIN, OUTPUT);
   digitalWrite(DISPLAYLEDPIN, 0);
@@ -210,6 +243,16 @@ void setup() {
   Serial.print(F("PI4RAZ DAB\n\n")); 
   Serial.print(F("Initializing....."));
 
+  if (!SPIFFS.begin(true)) {
+    Serial.println("SPIFFS Mount Failed");
+  }
+
+  File configurations = SPIFFS.open("/config.txt", "r"); //open the config file
+  if (!configurations) 
+  {
+    Serial.println("Failed to open config file");
+     
+  }
   ledcSetup(ledChannelforTFT, ledFreq, ledResol);
   ledcAttachPin(DISPLAYLEDPIN, ledChannelforTFT);
 
@@ -383,7 +426,8 @@ void DrawServiceData(){
       sprintf(actualInfo,"%s", Dab.ServiceData);
       tft.setTextColor(TFT_GREEN, TFT_BLACK);
       tft.setTextPadding(tft.textWidth(actualInfo));  // String width + margin
-      tft.fillRect(2,60,318,10,TFT_BLACK);
+      tft.fillRect(2,60,192,10,TFT_BLACK);
+      if (sizeof(actualInfo)>34) actualInfo[34] = '\0';
       tft.drawString(actualInfo, 2, 65, 2);
     }
     else
@@ -420,7 +464,7 @@ void DrawFrequency(){
       tft.setTextPadding(tft.textWidth(buf));
       tft.drawString(buf, 2,14,1);
       tft.setTextColor(TFT_CYAN, TFT_BLACK);
-      Serial.printf("Draw fequency:%d,%d,%s\r\n",Dab.service[actualDabService].ServiceID,actualDabService,Dab.service[actualDabService].Label);
+      Serial.printf("Draw fequency:%d,%d,%s - %d\r\n",Dab.service[actualDabService].ServiceID,actualDabService,Dab.service[actualDabService].Label,Dab.service[actualDabService].CompID);
       if (Dab.numberofservices>0) tft.drawString(Dab.service[actualDabService].Label, 2,45,4);
     }
     if (!settings.isDab){
@@ -453,13 +497,13 @@ void DrawStatus(){
     Dab.status();
     sprintf(buf,"   RSSI:%d, SNR:%d, Quality:%d\%", Dab.signalstrength, Dab.snr, Dab.quality);
   }
-  tft.setTextDatum(MR_DATUM);
-  tft.setTextColor(TFT_RED, TFT_BLACK);
-  tft.setTextPadding(tft.textWidth(buf));  // String width + margin
-  tft.drawString(buf, 315, 4, 1);
+  // tft.setTextDatum(MR_DATUM);
+  // tft.setTextColor(TFT_RED, TFT_BLACK);
+  // tft.setTextPadding(tft.textWidth(buf));  // String width + margin
+  // tft.drawString(buf, 315, 4, 1);
 
   DrawMeter(2,78,154,16,Dab.signalstrength,10,75,50,75,"RSSI:");
-  DrawMeter(162,78,154,16,Dab.snr,0,20,50,75,"SNR:");
+  // DrawMeter(162,78,154,16,Dab.snr,0,20,50,75,"SNR:");
 }
 
 void DrawButtons(){
@@ -595,7 +639,7 @@ Button FindButtonInfo(Button button){
 
   if (button.name=="LoadList") {
     sprintf(buttonBuf,"        ");
-    if (settings.activeBtn==FindButtonIDByName("LoadList")) sprintf(buttonBuf,"%d/%d",dabChannelSelected,dabChannelsCount);
+    if (settings.activeBtn==FindButtonIDByName("LoadList") && dabChannelsCount>0) sprintf(buttonBuf,"%d/%d",dabChannelSelected,dabChannelsCount);
     else sprintf(buttonBuf,"%d",dabChannelsCount);
     strcpy(button.waarde,buttonBuf);
   }
@@ -1200,6 +1244,10 @@ void SetRadio(bool firstTime){
     }
   }
   if (!firstTime) DrawFrequency();
+  if (settings.isDab){
+    Serial.printf("\r\nDabzaken ECC:%d, PI:%d, Ensemble:%s, RomID:%d, PartNo:%d,  VerMajor:%d, PS:%s, DabServiceID:%d, NumberOfServices:%d, EnsembleID:%d\r\n\r\n",Dab.ECC, Dab.pi, Dab.Ensemble,Dab.RomID,Dab.PartNo,Dab.VerMajor,Dab.ps, settings.dabServiceID, Dab.numberofservices,Dab.EnsembleID);
+    GetDABLogo(settings.dabServiceID,Dab.EnsembleID,Dab.ECC);
+  }
 }
 
 void addRec(int size){
@@ -1219,7 +1267,8 @@ void LoadList(){
     Serial.printf("ID:%d\r\n",i);
     Dab.tune(i);
     actualDabChannel=i;
-    if (Dab.numberofservices>0){
+    //if (Dab.numberofservices>0){
+    if (Dab.servicevalid()){
       for (int j=0; j<Dab.numberofservices;j++){
         actualDabService=j;
         Serial.printf("ID:%d, Service:%d\r\n",i,j);
@@ -1321,7 +1370,599 @@ void DABSpiMsg(unsigned char *data, uint32_t len)
   digitalWrite (slaveSelectPin, HIGH);
   SPI.endTransaction();
 }
+/***************************************************************************************
+**            Logo's
+***************************************************************************************/
+uint16_t GetDABLogo(uint16_t ServiceID, uint16_t EnsembleID, uint16_t ECC) {
+  uint16_t GCC = ECC + ((ServiceID >> 4) & 0xF00);
+  char radioDNS[128];
+  char bearer[128];
 
+  sprintf(radioDNS, "0.%04x.%04x.%x.dab.radiodns.org", ServiceID, EnsembleID, GCC);
+  sprintf(bearer, "dab:%x.%04x.%04x.0", GCC, EnsembleID, ServiceID);
+  return GetLogo(radioDNS, bearer, ServiceID);
+}
+
+uint16_t GetLogo(char *service, char *bearer, uint32_t id) {
+  uint16_t newlogo = 0;
+  char cname[128];
+  char srv[128];
+  char filename[32];
+
+  Serial.printf("radioDNS = %s\n", service);
+  Serial.printf("bearer = %s\n", bearer);
+
+  if (GetCNAME(cname, service) == 0){
+    Serial.printf("No CNAME\n");
+    return 0;
+  }
+
+  if (GetSRV(srv, cname) == 0)
+    return 0;
+
+  servicexml = (char *)malloc(16 * 1024);
+  if (GetServiceInfo(servicexml, (16 * 1024), srv, bearer) == 0) {
+    free(servicexml);
+    return 0;
+  }
+
+  if (ParseXMLImageURL(imageurl, mime, servicexml) == 0) {
+    free(servicexml);
+    return 0;
+  }
+
+  free(servicexml);
+
+  if (strlen(imageurl)) {
+    //find the extension...
+    char *ext = strrchr(imageurl, '.');
+    if (!ext || ext == imageurl)
+      return 0;
+
+    if (strcmp(ext, ".png") || strcmp(ext, ".jpg")) {
+      ext[4] = '\0';
+      sprintf(filename, "/%04x%s", id, ext);
+      Serial.printf("filename = %s\n", filename);
+
+      if (GetImage(filename, imageurl) == 1)
+        DrawLogo(id);
+        return id;
+    }
+  }
+  return 0;
+}
+
+int GetCNAME(char *cname, const char *service) {
+  char dns_string[128];
+
+  WiFiClientSecure *client = new WiFiClientSecure;
+
+  if (client) {
+    client->setInsecure();
+    // Add a scoping block for HTTPClient https to make sure it is destroyed before WiFiClientSecure *client is
+    HTTPClient https;
+
+    //Serial.print("[HTTPS] begin...\n");
+    sprintf(dns_string, "https://dns.google/resolve?name=%s&type=CNAME", service);
+    Serial.printf("[HTTPS] begin... %s\n", dns_string);
+
+    if (https.begin(*client, dns_string)) {  // HTTPS
+      // start connection and send HTTP header
+      int httpCode = https.GET();
+
+      // httpCode will be negative on error
+      if (httpCode > 0) {
+        // file found at server
+        if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+          String payload = https.getString();
+
+          filter["Answer"][0]["data"] = true;
+          DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
+
+          if (error) {
+            Serial.print("deserializeJson() failed: ");
+            Serial.println(error.c_str());
+            delete client;
+            return 0;
+          } else {
+            if (doc["Answer"][0]["data"] == nullptr) {
+              Serial.println("no data\n");
+              https.end();
+              delete client;
+              return 0;
+            }
+
+            Serial.printf("%s", (const char *)doc["Answer"][0]["data"]);
+            strcpy(cname, (const char *)doc["Answer"][0]["data"]);
+
+            Serial.println("cname\n");
+
+            if (strlen(cname) > 0) {
+
+              if (cname[strlen(cname) - 1] == '.') {
+                cname[strlen(cname) - 1] = '\0';
+              }
+              Serial.println(cname);
+            } else {
+              Serial.println("No CNAME\n");
+              https.end();
+              delete client;
+              return 0;
+            }
+          }
+        }
+      } else {
+        Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        https.end();
+        client->flush();
+        client->stop();
+        delete client;
+        return 0;
+      }
+      https.end();
+    } else {
+      Serial.printf("[HTTPS] Unable to connect\n");
+    }
+    // End extra scoping block
+
+    delete client;
+  } else {
+    Serial.println("Unable to create client");
+  }
+  return 1;
+}
+
+int GetSRV(char *srv, const char *cname) {
+  char dns_string[128];
+
+  WiFiClientSecure *client = new WiFiClientSecure;
+
+  if (client) {
+    client->setInsecure();
+    // Add a scoping block for HTTPClient https to make sure it is destroyed before WiFiClientSecure *client is
+    HTTPClient https;
+
+    sprintf(dns_string, "https://dns.google/resolve?name=_radioepg._tcp.%s&type=SRV", cname);
+    Serial.printf("[HTTPS] begin... %s\n", dns_string);
+
+    if (https.begin(*client, dns_string)) {  // HTTPS
+      // start connection and send HTTP header
+      int httpCode = https.GET();
+
+      // httpCode will be negative on error
+      Serial.printf("[HTTPS] Code:%d\n", httpCode);
+      if (httpCode > 0) {
+        // HTTP header has been send and Server response header has been handled
+        //Serial.printf("[HTTPS] GET... code: %d\n", httpCode);
+
+        // file found at server
+        if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+          String payload = https.getString();
+          Serial.printf("[HTTPS] Payload:%s\n", payload);
+          filter["Answer"][0]["data"] = true;
+          DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
+
+          if (error) {
+            Serial.print("deserializeJson() failed: ");
+            Serial.println(error.c_str());
+            https.end();
+            delete client;
+            return 0;
+          } else {
+            if (doc["Answer"][0]["data"] == nullptr) {
+              Serial.println("no data\n");
+              https.end();
+              delete client;
+              return 0;
+            }
+
+            int service_priority;
+            int service_weight;
+            int service_port;
+
+            sscanf((const char *)doc["Answer"][0]["data"], "%d %d %d %s", &service_priority, &service_weight, &service_port, srv);
+            if (srv[strlen(srv) - 1] == '.') {
+              srv[strlen(srv) - 1] = '\0';
+            }
+            Serial.println(srv);
+          }
+        }
+      } else {
+        Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+      }
+      https.end();
+    } else {
+      Serial.printf("[HTTPS] Unable to connect\n");
+      delete client;
+      return 0;
+    }
+    // End extra scoping block
+    delete client;
+  } else {
+    Serial.println("Unable to create client");
+    return 0;
+  }
+  return 1;
+}
+
+int GetServiceInfo(char *serviceinfo, uint16_t maxsize, const char *srv, const char *bearer) {
+
+  char xmlurl[128];
+  imageurl[0] = '\0';
+  int found = 0;
+
+  WiFiClientSecure *client = NULL;
+  HTTPClient https;
+
+  sprintf(xmlurl, "http://%s/radiodns/spi/3.1/SI.xml", srv);
+  Serial.printf("[HTTPS] begin... %s\n", xmlurl);
+
+  if (https.begin(xmlurl)) {  // HTTPS
+    int i;
+    const char *headerKeys[] = { "Content-Type", "Location" };
+    const size_t numberOfHeaders = 2;
+    https.collectHeaders(headerKeys, numberOfHeaders);
+    int httpCode = https.GET();
+
+    // httpCode will be negative on error
+    if (httpCode > 0) {
+      // HTTP header has been send and Server response header has been handled
+      //Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+      if (httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
+        String NewLocation = https.header("Location");
+        Serial.printf("Code 301 (moved permanently): %s", NewLocation.c_str());
+        https.end();
+        client = new WiFiClientSecure;
+        client->setInsecure();
+        https.begin(*client, NewLocation);
+        https.setTimeout(16000);
+        httpCode = https.GET();
+      }
+
+      // file found at server
+      if (httpCode == HTTP_CODE_OK)  // || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
+      {
+        int len = https.getSize();
+
+        Serial.println(https.header("Content-Type"));
+        Serial.printf("FileSize %d\n", len);
+
+        WiFiClient *stream = https.getStreamPtr();
+
+        while (https.connected() && (len > 0 || len == -1)) {
+          size_t size = stream->available();
+          if (size) {
+            int c = stream->readBytes(buff, (size > (sizeof(buff) - 1)) ? (sizeof(buff) - 1) : size);
+            if (len == -1)
+              if (dechunk(buff, &c, buff, c))
+                len = 0;
+
+            buff[c] = '\0';
+            if (!found) {
+              if (ParseService(serviceinfo, maxsize, buff, bearer)) {
+                //Perhaps we could end the stream...
+                found = 1;
+              }
+            }
+            if (len > 0)
+              len -= c;
+          }
+        }
+      } else {
+        Serial.printf("[HTTP] GET2... failed, error: %s\n", https.errorToString(httpCode).c_str());
+      }
+    } else {
+      Serial.printf("[HTTP] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+    }
+
+    https.end();
+
+    if (client)
+      delete client;
+  } else {
+    Serial.printf("[HTTP] Unable to connect\n");
+  }
+  return found;
+}
+
+int ParseXMLImageURL(char *url, char *mime, const char *xml) {
+  using namespace tinyxml2;
+  XMLDocument xmlDocument;
+  if (xmlDocument.Parse(xml) != tinyxml2::XML_SUCCESS) {
+    Serial.println("Error parsing");
+    return 0;
+  }
+
+  XMLNode *service = xmlDocument.FirstChild();
+  XMLElement *mediaDescription = service->FirstChildElement("mediaDescription");
+  bool found = true;
+  while (found) {
+    if (mediaDescription) {
+      XMLElement *multimedia = mediaDescription->FirstChildElement("multimedia");
+      if (multimedia) {
+        int height;
+        int width;
+        multimedia->QueryAttribute("height", &height);
+        multimedia->QueryAttribute("width", &width);
+        if ((height == 128) && (width == 128)) {
+          url[0] = '\0';
+          mime[0] = '\0';
+          if (multimedia->Attribute("url"))
+            strcpy(url, multimedia->Attribute("url"));
+          if (multimedia->Attribute("mimeValue"))
+            strcpy(mime, multimedia->Attribute("mimeValue"));
+          Serial.printf("Found (%dx%d), %s type:%s\n", height, width, url, mime);
+          return 1;
+        }
+      }
+      mediaDescription = mediaDescription->NextSiblingElement("mediaDescription");
+    } else {
+      found = false;
+    }
+  }
+  return 0;
+}
+
+int GetImage(const char *filename, const char *url) {
+
+  int success = 0;
+
+  WiFiClientSecure *client = NULL;
+  HTTPClient https;
+
+  if (strlen(url)) {
+    //download image
+    File f = SPIFFS.open(filename, "w");
+    Serial.printf("[HTTPS] begin... %s\n", url);
+
+    bool http_rc;
+    if (strncmp(url, "https://", 8) == 0) {
+      client = new WiFiClientSecure;
+      client->setInsecure();
+      http_rc = https.begin(*client, url);
+    } else {
+      http_rc = https.begin(url);
+    }
+
+    if (http_rc) {
+      int i;
+
+      // Serial.print("[HTTP] GET...\n");
+      // start connection and send HTTP header
+      const char *headerKeys[] = { "Content-Type" };
+      const size_t numberOfHeaders = 1;
+      https.collectHeaders(headerKeys, numberOfHeaders);
+      int httpCode = https.GET();
+
+      // httpCode will be negative on error
+      if (httpCode > 0) {
+        // file found at server
+        if (httpCode == HTTP_CODE_OK) {
+          int len = https.getSize();
+          Serial.println(https.header("Content-Type"));
+          Serial.printf("FileSize %d\n", len);
+
+          WiFiClient *stream = https.getStreamPtr();
+          int total = 0;
+
+          while (https.connected() && (len > 0 || len == -1)) {
+            size_t size = stream->available();
+            if (size) {
+              int c = stream->readBytes(buff, (size > sizeof(buff)) ? sizeof(buff) : size);
+              if (len == -1)
+                if (dechunk(buff, &c, buff, c))
+                  len = 0;
+
+              f.write((const uint8_t *)buff, c);
+              total += c;
+              if (len > 0)
+                len -= c;
+            }
+          }
+          if (total > 0)
+            success = 1;
+          Serial.printf("total %d\n", total);
+        }
+      }
+      https.end();
+    }
+    f.close();
+  }
+
+  if (client)
+    delete client;
+
+  Serial.printf("GetImage %s\n", success ? "success" : "fail");
+  return success;
+}
+
+bool dechunk(char *outbuff, int *outsize, const char *inbuff, int insize) {
+  static int chunklen = 0;
+  static int chunkparse = 0;
+
+  bool finished = false;
+  int outindex = 0;
+  int nibble;
+  int i;
+  char hex[2];
+
+  for (i = 0; i < insize; i++) {
+    //printf("%c", buff[i]);
+    switch (chunkparse) {
+      case 0:  //len
+        hex[0] = inbuff[i];
+        hex[1] = '\0';
+        if (sscanf(hex, "%x", &nibble) == 1) {
+          chunklen <<= 4;
+          chunklen |= nibble;
+        } else {
+          if (inbuff[i] == '\r')
+            chunkparse = 2;
+        }
+        break;
+      case 1:  //0x0d
+      case 2:  //0x0a
+        if (inbuff[i] == '\n') {
+          chunkparse = 3;
+          if (chunklen == 0) {
+            chunkparse = 0;
+            finished = true;
+          }
+        }
+        break;
+      case 3:  //data
+        outbuff[outindex] = inbuff[i];
+        outindex++;
+
+        chunklen--;
+        if (chunklen == 0)
+          chunkparse = 4;
+        break;
+
+      case 4:
+        if (inbuff[i] == '\r')
+          chunkparse = 5;
+        break;
+      case 5:
+        if (inbuff[i] == '\n')
+          chunkparse = 0;
+        break;
+    }
+  }
+  *outsize = outindex;
+  outbuff[outindex] = '\0';
+  return finished;
+}
+
+bool ParseService(char *serviceinfo, uint16_t maxsize, const char *text, const char *bearer) {
+  const char servicestart[] = "<service>";
+  const char serviceend[] = "</service>";
+  static int stringindex = 0;
+  static int servicestate = 0;
+  static int serviceindex = 0;
+
+  int i;
+  for (i = 0; i < strlen(text); i++) {
+    switch (servicestate) {
+      case 0:
+        //find "<service>"" or "<service " but not <serviceInfo etc..
+        if ((text[i] == servicestart[stringindex]) || ((servicestart[stringindex] == '>') && (text[i] == ' '))) {
+          serviceinfo[serviceindex] = text[i];
+          serviceindex++;
+          stringindex++;
+          if (stringindex == strlen(servicestart)) {
+            //Serial.printf("stringindex = %d, %d, %c", stringindex, strlen(servicestart), text[i]);
+            stringindex = 0;
+            servicestate = 1;
+          }
+        } else {
+          stringindex = 0;
+          serviceindex = 0;
+        }
+        break;
+      case 1:
+        serviceinfo[serviceindex] = text[i];
+        if (serviceindex < (maxsize - 1))
+          serviceindex++;
+
+        if (text[i] == serviceend[stringindex]) {
+          stringindex++;
+          if (stringindex == strlen(serviceend)) {
+            serviceinfo[serviceindex] = '\0';
+            stringindex = 0;
+            serviceindex = 0;
+            servicestate = 0;
+
+            if (FindOurService(serviceinfo, bearer))
+              return true;
+          }
+        } else {
+          stringindex = 0;
+        }
+        break;
+    }
+  }
+  return false;
+}
+
+bool FindOurService(const char *text, const char *bearer) {
+  if (strstr(text, bearer) != 0) {
+    //this serivce xml contains the station we are looking for
+    Serial.printf("Found it\n");
+    return true;
+  }
+  return false;
+}
+
+void DrawLogo(uint32_t id) {
+  char pngfilename[16];
+  char jpgfilename[16];
+
+  sprintf(pngfilename, "/%04x.png", id);
+  sprintf(jpgfilename, "/%04x.jpg", id);
+  //UpdateLogo = 0;
+  if (SPIFFS.exists(pngfilename)) {
+
+    int rc = png.open((const char *)pngfilename, myOpen, myClose, myRead, mySeek, PNGDraw);
+    if (rc == PNG_SUCCESS) {
+      Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
+      Serial.printf("PNG bufferSize %d\n", png.getBufferSize());
+      rc = png.decode(NULL, 0);
+      png.close();
+    }
+  } else if (SPIFFS.exists(jpgfilename)) {
+    //.jpg might not be a JPEG file - try openning it in pngdec
+    int rc = png.open((const char *)jpgfilename, myOpen, myClose, myRead, mySeek, PNGDraw);
+    if (rc == PNG_SUCCESS) {
+      Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
+      Serial.printf("PNG bufferSize %d\n", png.getBufferSize());
+      rc = png.decode(NULL, 0);
+      png.close();
+    } else {
+      //Couldn't Find the logo, lets go to RadioDNS...
+      //screen.drawRGBBitmap(/*x=*/20, /*y=*/20, /*bitmap gImage_Bitmap=*/(const unsigned uint16_t *)icon_DAB, /*w=*/128, /*h=*/128);
+      //tft.drawBitmap(0,192,png.getBuffer(),png.getWidth(),png.getHeight(),TFT_WHITE);
+        //x, y, logo, logoWidth, logoHeight, TFT_WHITE);
+    }
+  } else {
+    //Couldn't Find the logo, lets go to RadioDNS...
+    //screen.drawRGBBitmap(/*x=*/20, /*y=*/20, /*bitmap gImage_Bitmap=*/(const unsigned uint16_t *)icon_DAB, /*w=*/128, /*h=*/128);
+    //tft.drawBitmap(0,192,png.getBuffer(),png.getWidth(),png.getHeight(),TFT_WHITE);
+    //GetLogoSignal = true;
+  }
+}
+
+void PNGDraw(PNGDRAW *pDraw) {
+  uint16_t usPixels[128];
+  png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
+  for (int i=0;i<128;i++)
+    tft.drawPixel(192+i,pDraw->y,usPixels[i]);
+}
+
+/***************************************************************************************
+**            File handle routines
+***************************************************************************************/
+File myfile;
+void *myOpen(const char *filename, int32_t *size) {
+  Serial.printf("Attempting to open %s\n", filename);
+  myfile = SPIFFS.open(filename, "r");
+  *size = myfile.size();
+  return &myfile;
+}
+
+void myClose(void *handle) {
+  if (myfile) myfile.close();
+}
+
+int32_t myRead(PNGFILE *handle, uint8_t *buffer, int32_t length) {
+  if (!myfile) return 0;
+  return myfile.read(buffer, length);
+}
+
+int32_t mySeek(PNGFILE *handle, int32_t position) {
+  if (!myfile) return 0;
+  return myfile.seek(position);
+}
 /***************************************************************************************
 **            Calibrate touch
 ***************************************************************************************/
