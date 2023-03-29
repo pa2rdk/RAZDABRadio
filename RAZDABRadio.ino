@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.81 Much better logo's
 // V0.80 The first logo's
 // V0.72 Small interface corrections
 // V0.71 Clear DAB Channels on Clear of keyboard
@@ -147,11 +148,13 @@ typedef struct {
 } Settings;
 
 const Button buttons[] = {
-    {"ToLeft","<<","",  BTN_ARROW,  2,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"ToRight",">>","", BTN_ARROW,242,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
+    {"ToLeft","<<","",  BTN_ARROW,  2,208,154,30, TFT_BLUE, TFT_BUTTONCOLOR},
+    {"ToRight",">>","", BTN_ARROW,162,208,154,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
 
     {"Vol","Vol","",            1,  2,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
     {"Mute","Mute","",          1, 82,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+    {"Light","Light","",        1,162,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+    {"Off","Off","",            1,242,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
 
     {"Tune","Scan","",          1,  2,136, 74,30, TFT_BLUE, TFT_WHITE},
     {"Service","Select","",    1, 82,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
@@ -162,9 +165,6 @@ const Button buttons[] = {
     {"Mode","Mode","",          1, 82,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
     {"LoadList","Channels","",  1,162,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
     {"Stereo","Stereo","",      1,242,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-
-    {"Light","Light","",        1, 82,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Off","Off","",            1,162,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
 
     {"A001","1","",     BTN_NUMERIC, 42,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
     {"A002","2","",     BTN_NUMERIC,122,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
@@ -226,7 +226,6 @@ Memory memories[10] = {};
 
 StaticJsonDocument<48> filter;
 StaticJsonDocument<128> doc;
-// const char *Answer_0_data = doc["Answer"][0]["data"];  // "rdns.musicradio.com."
 
 char buff[1024];
 char *servicexml;
@@ -327,15 +326,15 @@ void DisplaySettings(String displayText){
   Serial.println();
   Serial.println(displayText);
   Serial.println();
-  Serial.printf("Active Button = %d",settings.activeBtn); Serial.println();
-  Serial.printf("Brighness = %d",settings.currentBrightness); Serial.println();  
-  Serial.printf("Dab channel = %d",settings.dabChannel); Serial.println();    
-  Serial.printf("Dab serviceID = %d",settings.dabServiceID); Serial.println();
-  Serial.printf("Dab service = %d",actualDabService); Serial.println();
-  Serial.printf("FM Freq = %d",settings.fmFreq); Serial.println();  
-  Serial.printf("Is Dab = %s",settings.isDab?"True":"False"); Serial.println();
-  Serial.printf("Is Stereo = %s",settings.isStereo?"True":"False"); Serial.println();
-  Serial.printf("Is Muted = %d",settings.isMuted); Serial.println(); 
+  Serial.printf("Active Button = %d\r\n",settings.activeBtn);
+  Serial.printf("Brighness = %d\r\n",settings.currentBrightness);
+  Serial.printf("Dab channel = %d\r\n",settings.dabChannel);
+  Serial.printf("Dab serviceID = %d\r\n",settings.dabServiceID);
+  Serial.printf("Dab service = %d\r\n",actualDabService);
+  Serial.printf("FM Freq = %d\r\n",settings.fmFreq); 
+  Serial.printf("Is Dab = %s\r\n",settings.isDab?"True":"False");
+  Serial.printf("Is Stereo = %s\r\n",settings.isStereo?"True":"False");
+  Serial.printf("Is Muted = %d\r\n",settings.isMuted); 
 }
 
 byte findChannelOnDabServiceID(uint16_t dabServiceID){
@@ -425,9 +424,9 @@ void DrawServiceData(){
     {
       sprintf(actualInfo,"%s", Dab.ServiceData);
       tft.setTextColor(TFT_GREEN, TFT_BLACK);
+      if (sizeof(actualInfo)>37) actualInfo[37] = '\0';
       tft.setTextPadding(tft.textWidth(actualInfo));  // String width + margin
-      tft.fillRect(2,60,192,10,TFT_BLACK);
-      if (sizeof(actualInfo)>34) actualInfo[34] = '\0';
+      tft.fillRect(2,60,252,13,TFT_BLACK);
       tft.drawString(actualInfo, 2, 65, 2);
     }
     else
@@ -456,7 +455,6 @@ void DrawServiceData(){
 void DrawFrequency(){
   if (actualPage<lastPage){
     tft.fillRect(0,0,320,99,TFT_BLACK);
-
     if (settings.isDab && Dab.freq_index>0){
       tft.setTextColor(TFT_BLUE, TFT_BLACK);
       tft.setTextDatum(ML_DATUM);
@@ -477,6 +475,10 @@ void DrawFrequency(){
         tft.drawString("MHz", 315,50,4);
     }
     DrawStatus();
+    if (settings.isDab){
+      Serial.printf("\r\nDabzaken ECC:%d, PI:%d, Ensemble:%s, RomID:%d, PartNo:%d,  VerMajor:%d, PS:%s, DabServiceID:%d, NumberOfServices:%d, EnsembleID:%d\r\n\r\n",Dab.ECC, Dab.pi, Dab.Ensemble,Dab.RomID,Dab.PartNo,Dab.VerMajor,Dab.ps, settings.dabServiceID, Dab.numberofservices,Dab.EnsembleID);
+      GetDABLogo(settings.dabServiceID,Dab.EnsembleID,Dab.ECC);
+    }
   }
 }
 
@@ -503,7 +505,7 @@ void DrawStatus(){
   // tft.drawString(buf, 315, 4, 1);
 
   DrawMeter(2,78,154,16,Dab.signalstrength,10,75,50,75,"RSSI:");
-  // DrawMeter(162,78,154,16,Dab.snr,0,20,50,75,"SNR:");
+  DrawMeter(162,78,154,16,Dab.snr,0,20,50,75,"SNR:");
 }
 
 void DrawButtons(){
@@ -801,7 +803,6 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (settings.memoryChannel<9){
         settings.memoryChannel++;
         SetRadioFromMemory(settings.memoryChannel);
-        if (doDraw) DrawFrequency();
         if (doDraw) DrawButton("MEM");
       }
     }
@@ -809,7 +810,6 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (dabChannelSelected<dabChannelsCount-1){
         dabChannelSelected++;
         SetRadioFromList(dabChannelSelected);
-        if (doDraw) DrawFrequency();
         if (doDraw) DrawButtons();
       }
     }
@@ -876,7 +876,6 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (settings.memoryChannel>0){
         settings.memoryChannel--;
         SetRadioFromMemory(settings.memoryChannel);
-        if (doDraw) DrawFrequency();
         if (doDraw) DrawButton("MEM");
       }
     }
@@ -884,7 +883,6 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (dabChannelSelected>0){
         dabChannelSelected--;
         SetRadioFromList(dabChannelSelected);
-        if (doDraw) DrawFrequency();
         if (doDraw) DrawButtons();
       }
     }
@@ -1186,9 +1184,10 @@ void SetRadioFromMemory(int channel){
   settings.dabChannel = memories[channel].dabChannel;
   settings.dabServiceID = memories[channel].dabServiceID;
   settings.fmFreq = memories[channel].fmFreq;
-  SetRadio();
+  SetRadio(false, false);
   if (settings.isDab) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
   Serial.printf("Set from Memory: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
+  DrawFrequency();
 }
 
 void SetRadioFromList(int channel){
@@ -1197,16 +1196,21 @@ void SetRadioFromList(int channel){
   settings.isStereo = true;
   settings.dabChannel = dabChannels[channel].dabChannel;
   settings.dabServiceID = dabChannels[channel].dabServiceID;
-  SetRadio();
+  SetRadio(false, false);
   if (settings.isDab) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
   Serial.printf("Set from List: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
+  DrawFrequency();
 }
 
 void SetRadio(){
-  SetRadio(false);
+  SetRadio(false, true);
 }
 
 void SetRadio(bool firstTime){
+    SetRadio(firstTime, false);
+}
+
+void SetRadio(bool firstTime, bool drawFreq){
   Serial.printf("Set from Radio: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
 
   bool doTune = false;
@@ -1227,7 +1231,6 @@ void SetRadio(bool firstTime){
     actualIsStereo = settings.isStereo;
     Dab.mono(!settings.isStereo);
   }
-
   
   if (settings.isDab){
     if (actualDabChannel != settings.dabChannel || firstTime || doTune){
@@ -1243,11 +1246,7 @@ void SetRadio(bool firstTime){
       Dab.tune((uint16_t)(settings.fmFreq/10));
     }
   }
-  if (!firstTime) DrawFrequency();
-  if (settings.isDab){
-    Serial.printf("\r\nDabzaken ECC:%d, PI:%d, Ensemble:%s, RomID:%d, PartNo:%d,  VerMajor:%d, PS:%s, DabServiceID:%d, NumberOfServices:%d, EnsembleID:%d\r\n\r\n",Dab.ECC, Dab.pi, Dab.Ensemble,Dab.RomID,Dab.PartNo,Dab.VerMajor,Dab.ps, settings.dabServiceID, Dab.numberofservices,Dab.EnsembleID);
-    GetDABLogo(settings.dabServiceID,Dab.EnsembleID,Dab.ECC);
-  }
+  if (drawFreq) DrawFrequency();
 }
 
 void addRec(int size){
@@ -1423,7 +1422,7 @@ uint16_t GetLogo(char *service, char *bearer, uint32_t id) {
       ext[4] = '\0';
       sprintf(filename, "/%04x%s", id, ext);
       Serial.printf("filename = %s\n", filename);
-
+      Serial.print("File exists:"); Serial.println(SPIFFS.exists(filename));
       if (GetImage(filename, imageurl) == 1)
         DrawLogo(id);
         return id;
@@ -1933,10 +1932,12 @@ void DrawLogo(uint32_t id) {
 }
 
 void PNGDraw(PNGDRAW *pDraw) {
-  uint16_t usPixels[128];
-  png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
-  for (int i=0;i<128;i++)
-    tft.drawPixel(192+i,pDraw->y,usPixels[i]);
+  if ((pDraw->y % 2) == 0){
+    uint16_t usPixels[128];
+    png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
+    for (int i=0;i<128;i++)
+      if ( (i % 2) == 0) tft.drawPixel(254+floor(i/2),6+floor(pDraw->y/2),usPixels[i]);
+  }
 }
 
 /***************************************************************************************
