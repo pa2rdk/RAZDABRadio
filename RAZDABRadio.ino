@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.85 Witte frequentie en clear van RDS info
 // V0.84 Lichtkrant
 // V0.83 Logo caching
 // V0.82 Logo improvements
@@ -487,7 +488,7 @@ void DrawFrequency(){
   if (actualPage<lastPage){
     tft.fillRect(0,0,320,99,TFT_BLACK);
     if (settings.isDab && Dab.freq_index>0){
-      tft.setTextColor(TFT_BLUE, TFT_BLACK);
+      tft.setTextColor(TFT_WHITE, TFT_BLACK);
       tft.setTextDatum(ML_DATUM);
       sprintf(buf, "%03d.%03d MHz", (uint16_t)(Dab.freq_khz(Dab.freq_index) / 1000),(uint16_t)(Dab.freq_khz(Dab.freq_index) % 1000));
       tft.setTextPadding(tft.textWidth(buf));
@@ -1242,6 +1243,7 @@ void SetRadio(bool firstTime){
 }
 
 void SetRadio(bool firstTime, bool drawFreq){
+  actualInfo[0]='\0';
   Serial.printf("Set from Radio: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
 
   bool doTune = false;
