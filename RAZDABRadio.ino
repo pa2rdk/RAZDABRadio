@@ -224,8 +224,8 @@ int actualDabService = 0;
 uint32_t actualFmFreq = 87500;
 Memory memories[10] = {};
 
-StaticJsonDocument<48> filter;
-StaticJsonDocument<128> doc;
+StaticJsonDocument<128> filter;
+StaticJsonDocument<256> doc;
 
 char buff[1024];
 char *servicexml;
@@ -1455,7 +1455,9 @@ int GetCNAME(char *cname, const char *service) {
         if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
           String payload = https.getString();
 
-          filter["Answer"][0]["data"] = true;
+
+          filter["Authority"][0]["data"] = true;
+                    filter["Answer"][0]["data"] = true;
           DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
 
           if (error) {
@@ -1464,24 +1466,34 @@ int GetCNAME(char *cname, const char *service) {
             delete client;
             return 0;
           } else {
-            if (doc["Answer"][0]["data"] == nullptr) {
+            serializeJsonPretty(doc, Serial);
+            if (doc["Answer"][0]["data"] == nullptr && doc["Authority"][0]["data"] == nullptr) {
               Serial.println("no data\n");
               https.end();
               delete client;
               return 0;
             }
 
-            Serial.printf("%s", (const char *)doc["Answer"][0]["data"]);
-            strcpy(cname, (const char *)doc["Answer"][0]["data"]);
-
-            Serial.println("cname\n");
+            if (doc["Authority"][0]["data"] == nullptr){
+              Serial.printf("%s", (const char *)doc["Answer"][0]["data"]);
+              strcpy(cname, (const char *)doc["Answer"][0]["data"]);
+            } else {
+              Serial.printf("%s", (const char *)doc["Authority"][0]["data"]);
+              strcpy(cname, (const char *)doc["Authority"][0]["data"]);   
+              for (int i = 0; i<strlen(cname); i++){
+                if (cname[i]==' '){
+                  cname[i]='\0';
+                  break;
+                }
+              } 
+            }
+            Serial.printf("cname:%s\n",cname);
 
             if (strlen(cname) > 0) {
-
               if (cname[strlen(cname) - 1] == '.') {
                 cname[strlen(cname) - 1] = '\0';
               }
-              Serial.println(cname);
+              Serial.printf("Nett cname:%s\n",cname);
             } else {
               Serial.println("No CNAME\n");
               https.end();
@@ -1539,6 +1551,7 @@ int GetSRV(char *srv, const char *cname) {
           String payload = https.getString();
           Serial.printf("[HTTPS] Payload:%s\n", payload);
           filter["Answer"][0]["data"] = true;
+          filter["Authority"][0]["data"] = true;
           DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
 
           if (error) {
@@ -1548,7 +1561,8 @@ int GetSRV(char *srv, const char *cname) {
             delete client;
             return 0;
           } else {
-            if (doc["Answer"][0]["data"] == nullptr) {
+            serializeJsonPretty(doc, Serial);
+            if (doc["Answer"][0]["data"] == nullptr && doc["Authority"][0]["data"] == nullptr) {
               Serial.println("no data\n");
               https.end();
               delete client;
@@ -1559,7 +1573,19 @@ int GetSRV(char *srv, const char *cname) {
             int service_weight;
             int service_port;
 
-            sscanf((const char *)doc["Answer"][0]["data"], "%d %d %d %s", &service_priority, &service_weight, &service_port, srv);
+            if (doc["Authority"][0]["data"] == nullptr){
+              sscanf((const char *)doc["Answer"][0]["data"], "%d %d %d %s", &service_priority, &service_weight, &service_port, srv);
+            } else {
+              
+              sscanf((const char *)doc["Authority"][0]["data"], "%d %d %d %s", &service_priority, &service_weight, &service_port, srv);  
+              for (int i = 0; i<strlen(srv); i++){
+                if (srv[i]==' '){
+                  srv[i]='\0';
+                  break;
+                }
+              } 
+            }
+
             if (srv[strlen(srv) - 1] == '.') {
               srv[strlen(srv) - 1] = '\0';
             }
