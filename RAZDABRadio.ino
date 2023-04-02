@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////
-// V0.85 Witte frequentie en clear van RDS info
+// V0.85 Witte frequentie en clear van RDS info en aangepaste meter
 // V0.84 Lichtkrant
 // V0.83 Logo caching
 // V0.82 Logo improvements
@@ -536,8 +536,8 @@ void DrawStatus(){
   // tft.setTextPadding(tft.textWidth(buf));  // String width + margin
   // tft.drawString(buf, 315, 4, 1);
 
-  DrawMeter(2,78,154,16,Dab.signalstrength,10,75,50,75,"RSSI:");
-  DrawMeter(162,78,154,16,Dab.snr,0,20,50,75,"SNR:");
+  DrawMeter(2,78,154,16,Dab.signalstrength,10,65,50,75,"RSSI:");
+  DrawMeter(162,78,154,16,Dab.snr,0,40,50,75,"SNR:");
 }
 
 void DrawButtons(){
