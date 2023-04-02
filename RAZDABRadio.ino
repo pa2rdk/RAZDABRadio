@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.84 Lichtkrant
 // V0.83 Logo caching
 // V0.82 Logo improvements
 // V0.81 Much better logo's
@@ -212,6 +213,10 @@ bool wifiAPMode = false;
 bool isOn = true;
 char actualInfo[100] = "\0";
 char lastInfo[100] = "\0";
+char dispInfo[100] = "\0";
+int infoPos = 0;
+int infoLen = 30;
+long infoTime = millis();
 int services[20] = {};
 DABChannel* dabChannels = 0;
 int dabChannelsCount = 0;
@@ -372,6 +377,40 @@ void loop() {
     if (!CompareConfig()) SaveConfig();
   }
 
+  if (actualPage==1 && millis()-infoTime>500){
+    infoTime = millis();
+    if (infoPos >= strlen(actualInfo)) infoPos = 0;
+    if (strlen(actualInfo)>infoLen){
+      for (int i=0;i<strlen(actualInfo) && i<infoLen;i++){
+        int iPos = i+infoPos;
+        if (iPos>=strlen(actualInfo)) iPos=iPos - strlen(actualInfo);
+        dispInfo[i] = actualInfo[iPos];
+        Serial.printf("%s - %s / %d - %d\r\n",actualInfo, dispInfo,i,iPos);
+      }
+      dispInfo[strlen(actualInfo)] = '\0';
+      infoPos++;
+    } else strcpy(dispInfo,actualInfo);
+
+
+
+    tft.setTextDatum(ML_DATUM);
+    if (settings.isDab)
+    {
+      tft.setTextColor(TFT_GREEN, TFT_BLACK);
+      tft.setTextPadding(tft.textWidth(dispInfo));  // String width + margin
+      tft.fillRect(2,60,252,13,TFT_BLACK);
+      tft.drawString(dispInfo, 2, 65, 2);
+    }
+    else
+    {
+      sprintf(dispInfo, "%s - %s", Dab.ps, Dab.ServiceData);
+      tft.setTextColor(TFT_GREEN, TFT_BLACK);
+      tft.setTextPadding(tft.textWidth(dispInfo));  // String width + margin
+      tft.fillRect(2,11,318,6,TFT_BLACK);
+      tft.drawString(dispInfo, 2, 14, 1);
+    }
+  }
+
   if (millis()-pressTime>100){
     uint16_t x = 0, y = 0;
     bool pressed = tft.getTouch(&x, &y);
@@ -424,12 +463,7 @@ void DrawServiceData(){
     tft.setTextDatum(ML_DATUM);
     if (settings.isDab)
     {
-      sprintf(actualInfo,"%s", Dab.ServiceData);
-      tft.setTextColor(TFT_GREEN, TFT_BLACK);
-      if (sizeof(actualInfo)>37) actualInfo[37] = '\0';
-      tft.setTextPadding(tft.textWidth(actualInfo));  // String width + margin
-      tft.fillRect(2,60,252,13,TFT_BLACK);
-      tft.drawString(actualInfo, 2, 65, 2);
+      sprintf(actualInfo,"%s ", Dab.ServiceData);
     }
     else
     {
@@ -438,18 +472,13 @@ void DrawServiceData(){
       tft.setTextPadding(tft.textWidth(actualInfo));  // String width + margin
       tft.drawString(actualInfo, 2, 4, 1);
 
-      sprintf(actualInfo, "%s - %s", Dab.ps, Dab.ServiceData);
-      tft.setTextColor(TFT_GREEN, TFT_BLACK);
-      tft.setTextPadding(tft.textWidth(actualInfo));  // String width + margin
-      tft.fillRect(2,11,318,6,TFT_BLACK);
-      tft.drawString(actualInfo, 2, 14, 1);
+      sprintf(actualInfo, "%s - %s ", Dab.ps, Dab.ServiceData);
     }
     if (strcmp(lastInfo,actualInfo)!=0){
       Serial.println("Old and new differ");
       strcpy(lastInfo,actualInfo);
       Serial.println(actualInfo);
-    } else {
-      //Serial.println("Old and new are same");
+      infoPos = 0;
     }
   }
 }
@@ -1382,21 +1411,15 @@ uint16_t GetDABLogo(uint16_t ServiceID, uint16_t EnsembleID, uint16_t ECC) {
   sprintf(radioDNS, "0.%04x.%04x.%x.dab.radiodns.org", ServiceID, EnsembleID, GCC);
   sprintf(bearer, "dab:%x.%04x.%04x.0", GCC, EnsembleID, ServiceID);
 
-  char filename[32];
-  sprintf(filename, "/%04x%s", ServiceID, ".png");
-  Serial.printf("File %s exists:%d\r\n", filename, SPIFFS.exists(filename));
-  if (SPIFFS.exists(filename)){
+  char pngfilename[16];
+  char jpgfilename[16];
+
+  sprintf(pngfilename, "/%04x.png", ServiceID);
+  sprintf(jpgfilename, "/%04x.jpg", ServiceID);
+  if (SPIFFS.exists(pngfilename) || SPIFFS.exists(jpgfilename)){
     DrawLogo(ServiceID);
     return ServiceID;
   } 
-
-  sprintf(filename, "/%04x%s", ServiceID, ".jpg");
-  Serial.printf("File %s exists:%d\r\n", filename, SPIFFS.exists(filename));
-  if (SPIFFS.exists(filename)){
-    DrawLogo(ServiceID);
-    return ServiceID;
-  } 
-
   return GetLogo(radioDNS, bearer, ServiceID);
 }
 
