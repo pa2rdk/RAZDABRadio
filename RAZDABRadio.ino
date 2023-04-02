@@ -385,7 +385,7 @@ void loop() {
         int iPos = i+infoPos;
         if (iPos>=strlen(actualInfo)) iPos=iPos - strlen(actualInfo);
         dispInfo[i] = actualInfo[iPos];
-        Serial.printf("%s - %s / %d - %d\r\n",actualInfo, dispInfo,i,iPos);
+        // Serial.printf("%s - %s / %d - %d\r\n",actualInfo, dispInfo,i,iPos);
       }
       dispInfo[strlen(actualInfo)] = '\0';
       infoPos++;
