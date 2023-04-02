@@ -1,4 +1,6 @@
 ////////////////////////////////////////////////////////////
+// V0.83 Logo caching
+// V0.82 Logo improvements
 // V0.81 Much better logo's
 // V0.80 The first logo's
 // V0.72 Small interface corrections
@@ -1379,6 +1381,22 @@ uint16_t GetDABLogo(uint16_t ServiceID, uint16_t EnsembleID, uint16_t ECC) {
 
   sprintf(radioDNS, "0.%04x.%04x.%x.dab.radiodns.org", ServiceID, EnsembleID, GCC);
   sprintf(bearer, "dab:%x.%04x.%04x.0", GCC, EnsembleID, ServiceID);
+
+  char filename[32];
+  sprintf(filename, "/%04x%s", ServiceID, ".png");
+  Serial.printf("File %s exists:%d\r\n", filename, SPIFFS.exists(filename));
+  if (SPIFFS.exists(filename)){
+    DrawLogo(ServiceID);
+    return ServiceID;
+  } 
+
+  sprintf(filename, "/%04x%s", ServiceID, ".jpg");
+  Serial.printf("File %s exists:%d\r\n", filename, SPIFFS.exists(filename));
+  if (SPIFFS.exists(filename)){
+    DrawLogo(ServiceID);
+    return ServiceID;
+  } 
+
   return GetLogo(radioDNS, bearer, ServiceID);
 }
 
@@ -1422,7 +1440,6 @@ uint16_t GetLogo(char *service, char *bearer, uint32_t id) {
       ext[4] = '\0';
       sprintf(filename, "/%04x%s", id, ext);
       Serial.printf("filename = %s\n", filename);
-      Serial.print("File exists:"); Serial.println(SPIFFS.exists(filename));
       if (GetImage(filename, imageurl) == 1)
         DrawLogo(id);
         return id;
@@ -1576,7 +1593,6 @@ int GetSRV(char *srv, const char *cname) {
             if (doc["Authority"][0]["data"] == nullptr){
               sscanf((const char *)doc["Answer"][0]["data"], "%d %d %d %s", &service_priority, &service_weight, &service_port, srv);
             } else {
-              
               sscanf((const char *)doc["Authority"][0]["data"], "%d %d %d %s", &service_priority, &service_weight, &service_port, srv);  
               for (int i = 0; i<strlen(srv); i++){
                 if (srv[i]==' '){
