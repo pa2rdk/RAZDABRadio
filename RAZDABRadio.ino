@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.87 Cache
 // V0.86 NoCache
 // V0.85 Witte frequentie en clear van RDS info en aangepaste meter
 // V0.84 Lichtkrant
@@ -1416,10 +1417,10 @@ uint16_t GetDABLogo(uint16_t ServiceID, uint16_t EnsembleID, uint16_t ECC) {
 
   sprintf(pngfilename, "/%04x.png", ServiceID);
   sprintf(jpgfilename, "/%04x.jpg", ServiceID);
-  // if (SPIFFS.exists(pngfilename) || SPIFFS.exists(jpgfilename)){
-  //   DrawLogo(ServiceID);
-  //   return ServiceID;
-  // } 
+  if (SPIFFS.exists(pngfilename) || SPIFFS.exists(jpgfilename)){
+    DrawLogo(ServiceID);
+    return ServiceID;
+  } 
   return GetLogo(radioDNS, bearer, ServiceID);
 }
 
