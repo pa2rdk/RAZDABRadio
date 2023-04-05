@@ -372,12 +372,12 @@ void loop() {
     DrawStatus();
     lastTime= millis();
   }
-
+ 
   if (millis()-saveTime>2000){
     saveTime = millis();
     if (!CompareConfig()) SaveConfig();
   }
-
+ 
   if (actualPage==1 && millis()-infoTime>500){
     infoTime = millis();
     if (infoPos >= strlen(actualInfo)) infoPos = 0;
@@ -391,8 +391,6 @@ void loop() {
       dispInfo[strlen(actualInfo)] = '\0';
       infoPos++;
     } else strcpy(dispInfo,actualInfo);
-
-
 
     tft.setTextDatum(ML_DATUM);
     if (settings.isDab)
@@ -431,7 +429,6 @@ void loop() {
   Dab.task();
   WaitForWakeUp();
 }
-
 
 /***************************************************************************************
 **            Draw screen
@@ -537,7 +534,7 @@ void DrawStatus(){
   // tft.drawString(buf, 315, 4, 1);
 
   DrawMeter(2,78,154,16,Dab.signalstrength,10,65,50,75,"RSSI:");
-  DrawMeter(162,78,154,16,Dab.snr,0,40,50,75,"SNR:");
+  DrawMeter(162,78,154,16,Dab.snr,0,settings.isDab?20:40,50,75,"SNR:");
 }
 
 void DrawButtons(){
