@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.90 DABShield on own SPI interface    
 // V0.88 Debug on serial print
 // V0.87 Cache
 // V0.86 NoCache
@@ -90,7 +91,7 @@ const char *const audiomode[]  = {mode_0,mode_1,mode_2,mode_3};
 #define BTN_ARROW       2048
 #define BTN_NUMERIC     1024
 
-#define DISPLAYLEDPIN   13
+#define DISPLAYLEDPIN  33
 
 #define TFT_GREY 0x5AEB
 #define TFT_LIGTHYELLOW 0xFF10
@@ -202,8 +203,9 @@ TFT_eSPI tft = TFT_eSPI();            // Invoke custom library
 DABTime dabtime;
 WiFiMulti wifiMulti;
 PNG png;
+SPIClass * hspi = NULL;
 
-const byte slaveSelectPin = 12;
+const byte slaveSelectPin = 25; //Was 12 ivm second SPI;
 int actualPage = 1;
 int lastPage = 2;
 int32_t keyboardNumber = 0;
@@ -273,7 +275,9 @@ void setup() {
   pinMode(slaveSelectPin, OUTPUT);
   digitalWrite(slaveSelectPin, HIGH);
   SPI.begin(); 
-
+  hspi = new SPIClass(HSPI);
+  hspi->begin();
+  
   tft.init();
   tft.setRotation(screenRotation);
 
@@ -282,7 +286,7 @@ void setup() {
 
   //DAB Setup
   Dab.setCallback(DrawServiceData);
-  Dab.begin();
+  Dab.begin(0,26,32,27);
 
   if(Dab.error != 0)
   {
@@ -1400,11 +1404,11 @@ bool LoadMemories() {
 ***************************************************************************************/
 void DABSpiMsg(unsigned char *data, uint32_t len)
 {
-  SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));    //2MHz for starters...
+  hspi->beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));    //2MHz for starters...
   digitalWrite (slaveSelectPin, LOW);
-  SPI.transfer(data, len);
+  hspi->transfer(data, len);
   digitalWrite (slaveSelectPin, HIGH);
-  SPI.endTransaction();
+  hspi->endTransaction();
 }
 /***************************************************************************************
 **            Logo's
