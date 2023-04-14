@@ -290,8 +290,9 @@ void setup() {
 
   if(Dab.error != 0)
   {
-    DrawButton(80,120,160,30,"DAB Error","",TFT_RED,TFT_WHITE,"");
-    if (settings.isDebug) Serial.println("failed to initialise DAB shield"); 
+    sprintf(dispInfo, "DAB Error %02d",Dab.error);
+    DrawButton(80,120,160,30,dispInfo,"",TFT_RED,TFT_WHITE,"");
+    if (settings.isDebug) Serial.printf("failed to initialize DAB shield %d",Dab.error); 
     while(1);
   }
 
