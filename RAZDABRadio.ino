@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.91 Code netjes
 // V0.90 DABShield on own SPI interface    
 // V0.88 Debug on serial print
 // V0.87 Cache
@@ -98,6 +99,11 @@ const char *const audiomode[]  = {mode_0,mode_1,mode_2,mode_3};
 #define TFT_DARKBLUE 0x016F
 #define TFT_SHADOW 0xE71C
 #define TFT_BUTTONCOLOR 0xB5FE
+
+#define DAB_BAND      0
+#define DAB_INTERRUPT 26
+#define DAB_RESET     32
+#define DAB_PWREN     27  
 
 typedef struct  // WiFi Access
 {
@@ -286,7 +292,7 @@ void setup() {
 
   //DAB Setup
   Dab.setCallback(DrawServiceData);
-  Dab.begin(0,26,32,27);
+  Dab.begin(DAB_BAND, DAB_INTERRUPT, DAB_RESET, DAB_PWREN);
 
   if(Dab.error != 0)
   {
