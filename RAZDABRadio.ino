@@ -47,9 +47,20 @@
 //  |   T_IRQ    |     34           |
 //  |------------|------------------|
 //
+//  |------------|------------------|
+//  | DAB Shield |     ESP32        |
+//  |------------|------------------|
+//  | INTERRUPT  |     26           | 
+//  | RESET      |     32           | 
+//  | PWREN      |     27           | 
+//  | MISO       |     35           | 
+//  | MOSI       |     13           | 
+//  | SCLK       |     14           | 
+//  | CS         |     15           | 
+//  |------------|------------------|
 // Installing Libraries
 //
-// The Hybrid-Radio Project uses Libraries for various functionality.   These can be installed from Library Manager  (Tools | Manage Libraries).
+// The Hybrid-Radio Project uses Libraries for various functionality. These can be installed from Library Manager  (Tools | Manage Libraries).
 // DABShield - Version 1.5.3 or above
 // ArduinoJson by Benoit Blanchon - Version 6.19.4
 // PNGdec by Larry Bank - Version 1.0.1
