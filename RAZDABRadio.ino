@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.92 Sort and save channel list
 // V0.91 Pin 12 changed to 35 on HSPI
 // V0.90 DABShield on own SPI interface PAS OP.... Ik heb de library aangepast.    
 // V0.88 Debug on serial print
@@ -77,7 +78,7 @@
 #include "esp_pthread.h"
 
 #define offsetEEPROM       32
-#define EEPROM_SIZE        2048
+#define EEPROM_SIZE        4096
 
 const char mode_0[]  = "Dual";
 const char mode_1[]  = "Mono";
@@ -163,6 +164,8 @@ typedef struct {
   byte memoryChannel;
   byte activeBtn;
   byte currentBrightness;
+  uint8_t dabChannelsCount;  
+  uint8_t dabChannelSelected;
   bool isDebug;
 } Settings;
 
@@ -236,8 +239,6 @@ int infoLen = 30;
 long infoTime = millis();
 int services[20] = {};
 DABChannel* dabChannels = 0;
-int dabChannelsCount = 0;
-int dabChannelSelected = 0;
 
 bool actualIsDab = false;
 byte actualDabVol = 0;
@@ -327,6 +328,7 @@ void setup() {
   
   LoadConfig();
   LoadMemories();
+  LoadStationList();
 
   // add Wi-Fi networks from All_Settings.h
   for (int i = 0; i < sizeof(wifiNetworks)/sizeof(wifiNetworks[0]); i++ ){
@@ -694,8 +696,8 @@ Button FindButtonInfo(Button button){
 
   if (button.name=="LoadList") {
     sprintf(buttonBuf,"        ");
-    if (settings.activeBtn==FindButtonIDByName("LoadList") && dabChannelsCount>0) sprintf(buttonBuf,"%d/%d",dabChannelSelected,dabChannelsCount);
-    else sprintf(buttonBuf,"%d",dabChannelsCount);
+    if (settings.activeBtn==FindButtonIDByName("LoadList") && settings.dabChannelsCount>0) sprintf(buttonBuf,"%d/%d",settings.dabChannelSelected,settings.dabChannelsCount);
+    else sprintf(buttonBuf,"%d",settings.dabChannelsCount);
     strcpy(button.waarde,buttonBuf);
   }
 
@@ -741,7 +743,7 @@ void DrawKeyboardNumber(bool doReset){
   if (settings.activeBtn==FindButtonIDByName("LoadList")){
     tft.fillRect(0,82,315,12,TFT_BLACK);
     tft.setTextDatum(MR_DATUM);
-    tft.setTextPadding(tft.textWidth(dabChannels[dabChannelSelected].dabName));
+    tft.setTextPadding(tft.textWidth(dabChannels[settings.dabChannelSelected].dabName));
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
     tft.drawString(dabChannels[keyboardNumber].dabName, 282,88,2);
     if (settings.isDebug) Serial.println(dabChannels[keyboardNumber].dabName);
@@ -860,9 +862,9 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       }
     }
     else if (settings.activeBtn==FindButtonIDByName("LoadList")){
-      if (dabChannelSelected<dabChannelsCount-1){
-        dabChannelSelected++;
-        SetRadioFromList(dabChannelSelected);
+      if (settings.dabChannelSelected<settings.dabChannelsCount-1){
+        settings.dabChannelSelected++;
+        SetRadioFromList(settings.dabChannelSelected);
         if (doDraw) DrawButtons();
       }
     }
@@ -933,9 +935,9 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       }
     }
     else if (settings.activeBtn==FindButtonIDByName("LoadList")){
-      if (dabChannelSelected>0){
-        dabChannelSelected--;
-        SetRadioFromList(dabChannelSelected);
+      if (settings.dabChannelSelected>0){
+        settings.dabChannelSelected--;
+        SetRadioFromList(settings.dabChannelSelected);
         if (doDraw) DrawButtons();
       }
     }
@@ -1083,18 +1085,18 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   }
 
   if (button.name=="LoadList"){
-    if (dabChannelsCount==0) {
+    if (settings.dabChannelsCount==0) {
       DrawPatience();
       LoadList();
       actualPage=1;
       if (doDraw) DrawScreen();
     } else {
         if (settings.activeBtn==FindButtonIDByName("LoadList")){
-        keyboardNumber = dabChannelSelected;
+        keyboardNumber = settings.dabChannelSelected;
         actualPage = BTN_NUMERIC;
         if (doDraw) DrawScreen();
       } else {
-        SetRadioFromList(dabChannelSelected);
+        SetRadioFromList(settings.dabChannelSelected);
         settings.activeBtn=FindButtonIDByName("LoadList");
         if (doDraw) DrawButtons();
       }
@@ -1158,7 +1160,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (keyboardNumber>9) keyboardNumber=0;
     }
     if (settings.activeBtn==FindButtonIDByName("LoadList")){
-      if (keyboardNumber>dabChannelsCount) keyboardNumber=0;
+      if (keyboardNumber>settings.dabChannelsCount) keyboardNumber=0;
     }
     if (doDraw) DrawKeyboardNumber(false);
   }
@@ -1198,8 +1200,8 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       SetRadioFromMemory(settings.memoryChannel);
     } 
     if (settings.activeBtn==FindButtonIDByName("LoadList")){
-      dabChannelSelected=keyboardNumber; 
-      SetRadioFromList(dabChannelSelected);
+      settings.dabChannelSelected=keyboardNumber; 
+      SetRadioFromList(settings.dabChannelSelected);
     } 
     if (settings.activeBtn==FindButtonIDByName("Save")){
       settings.memoryChannel=keyboardNumber;
@@ -1221,8 +1223,8 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     } else {
       actualPage = 1;
       if (settings.activeBtn==FindButtonIDByName("LoadList")){
-        dabChannelSelected=keyboardNumber;
-        dabChannelsCount=0;
+        settings.dabChannelSelected=keyboardNumber;
+        settings.dabChannelsCount=0;
         dabChannels={};
       }
       if (doDraw) DrawScreen();
@@ -1313,9 +1315,9 @@ void addRec(int size){
 
 void LoadList(){
   dabChannels = 0;
-  dabChannelsCount = 0;
+  settings.dabChannelsCount = 0;
   for (uint8_t i=0;i<DAB_FREQS;i++){
-    sprintf(buf, "Even geduld...%d/%d",i,DAB_FREQS-1);
+    sprintf(buf, "Even geduld...%d/%d (%d)",i,DAB_FREQS-1,settings.dabChannelsCount);
     tft.drawString(buf, 0,30,4);
     if (settings.isDebug) Serial.printf("ID:%d\r\n",i);
     Dab.tune(i);
@@ -1325,23 +1327,24 @@ void LoadList(){
       for (int j=0; j<Dab.numberofservices;j++){
         actualDabService=j;
         if (settings.isDebug) Serial.printf("ID:%d, Service:%d\r\n",i,j);
-        addRec(dabChannelsCount+1);
-        dabChannels[dabChannelsCount].dabChannel = i;
-        dabChannels[dabChannelsCount].dabServiceID = Dab.service[j].ServiceID;
-        sprintf(dabChannels[dabChannelsCount].dabName,"%s",Dab.service[j].Label);
-        dabChannelsCount++;
+        addRec(settings.dabChannelsCount+1);
+        dabChannels[settings.dabChannelsCount].dabChannel = i;
+        dabChannels[settings.dabChannelsCount].dabServiceID = Dab.service[j].ServiceID;
+        sprintf(dabChannels[settings.dabChannelsCount].dabName,"%s",Dab.service[j].Label);
+        settings.dabChannelsCount++;
       }
     }
   }
 
   if (settings.isDebug) Serial.println("Show list");
-  if (dabChannelsCount>0){
-    for (int i = 0; i<dabChannelsCount;i++){
+  if (settings.dabChannelsCount>0){
+    for (int i = 0; i<settings.dabChannelsCount;i++){
       if (settings.isDebug) Serial.printf("ID %d = Channel:%d, ServiceID:%d, Name:%s\r\n",i,dabChannels[i].dabChannel,dabChannels[i].dabServiceID,dabChannels[i].dabName);
-    }
-  }  
-  dabChannelSelected=0;
-  SetRadioFromList(0);
+    } 
+    settings.dabChannelSelected=0;
+    SaveStationList();
+    SetRadioFromList(0);
+  } 
 }
 
 void SetMute(){
@@ -1407,11 +1410,37 @@ bool SaveMemories() {
 }
 
 bool LoadMemories() {
-  bool retVal = true;
   for (unsigned int t = 0; t < sizeof(memories); t++)
     *((char*)&memories + t) = EEPROM.read(offsetEEPROM + sizeof(settings) + 10 + t);
-  if (settings.isDebug) Serial.println("Memories:" + retVal?"Loaded":"Not loaded");
-  return retVal;
+  if (settings.isDebug) Serial.println("Memories loaded");
+  return true;
+}
+
+int compare(const void *v1, const void *v2){
+    DABChannel *ia = (DABChannel *)v1;
+    DABChannel *ib = (DABChannel *)v2;
+    return strcmp(ia->dabName, ib->dabName);
+}
+
+bool SaveStationList() {
+  qsort(dabChannels, settings.dabChannelsCount, sizeof(DABChannel), compare);
+  for (int i=0; i<settings.dabChannelsCount;i++)
+    for (unsigned int t = 0; t < sizeof(DABChannel); t++)
+      EEPROM.write(offsetEEPROM + sizeof(settings) + sizeof(memories) + (i*sizeof(DABChannel)) + 10 + t, *((char*)&dabChannels[i] + t)); 
+  EEPROM.commit();
+  return true;
+}
+
+bool LoadStationList() {
+  if (settings.isDebug) Serial.printf("Loading Stationlist: %d stations of %d bytes",settings.dabChannelsCount,sizeof(DABChannel));
+  for (int i=0; i<settings.dabChannelsCount;i++)
+  {
+    addRec(i+1);
+    for (unsigned int t = 0; t < sizeof(DABChannel); t++)
+      *((char*)&dabChannels[i] + t) = EEPROM.read(offsetEEPROM + sizeof(settings) + sizeof(memories) + (i*sizeof(DABChannel)) + 10 + t);
+  }
+  if (settings.isDebug) Serial.println("Stationlist loaded");
+  return true;
 }
 /***************************************************************************************
 **            De rest
