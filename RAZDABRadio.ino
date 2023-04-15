@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.93 Info button acts as loop through all channels.
 // V0.92 Sort and save channel list
 // V0.91 Pin 12 changed to 35 on HSPI
 // V0.90 DABShield on own SPI interface PAS OP.... Ik heb de library aangepast.    
@@ -707,8 +708,8 @@ Button FindButtonInfo(Button button){
 
   if (button.name=="LoadList") {
     sprintf(buttonBuf,"        ");
-    if (settings.activeBtn==FindButtonIDByName("LoadList") && settings.dabChannelsCount>0) sprintf(buttonBuf,"%d/%d",settings.dabChannelSelected,settings.dabChannelsCount);
-    else sprintf(buttonBuf,"%d",settings.dabChannelsCount);
+    if (settings.activeBtn==FindButtonIDByName("LoadList") && settings.dabChannelsCount>0) sprintf(buttonBuf,"%d/%d",settings.dabChannelSelected,settings.dabChannelsCount-1);
+    else sprintf(buttonBuf,"%d",settings.dabChannelsCount-1);
     strcpy(button.waarde,buttonBuf);
   }
 
@@ -1012,40 +1013,50 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   }
 
   if(button.name =="Info"){
-    actualPage=lastPage;
-    DrawScreen();
-
-    tft.fillRect(2,2,320,200,TFT_BLACK);
-    tft.setTextDatum(ML_DATUM);
-    tft.setTextPadding(50);
-    tft.setTextColor(TFT_YELLOW,TFT_BLACK);
-
-    if (wifiAvailable || wifiAPMode){
-      tft.setTextColor(TFT_YELLOW,TFT_BLACK);
-      tft.drawString("WiFi:",2,10,2);
-      tft.setTextColor(TFT_GREEN,TFT_BLACK);
-      tft.drawString("SSID        :" + String(WiFi.SSID()),2,25,1);
-      sprintf(buf,"IP Address  :%d.%d.%d.%d", WiFi.localIP()[0],WiFi.localIP()[1],WiFi.localIP()[2],WiFi.localIP()[3]);
-      tft.drawString(buf,2,33,1);
-      tft.drawString("RSSI        :" + String(WiFi.RSSI()),2,41,1); 
-    }
-
-    if (settings.isDab){
-      tft.setTextColor(TFT_GREENYELLOW, TFT_BLACK);
-      tft.drawString("Service:",2,60,2);
-      tft.setTextColor(TFT_GREEN,TFT_BLACK);
-      for (int i=0;i<Dab.numberofservices;i++){
-        sprintf(buf,"%2d=(%d) %s",i, Dab.service[i].ServiceID, Dab.service[i].Label);
-        tft.drawString(buf,2,75+(i*8),1);
+    if (settings.activeBtn==FindButtonIDByName("LoadList")){
+      settings.dabChannelSelected = 0;
+      for (int i=0;i<settings.dabChannelsCount-1;i++){
+        settings.dabChannelSelected++;
+        SetRadioFromList(settings.dabChannelSelected);
+        if (doDraw) DrawButtons();
+        delay(1000);
       }
-    }
+    } else {
+      actualPage=lastPage;
+      DrawScreen();
 
-    tft.setTextColor(TFT_GREENYELLOW, TFT_BLACK);
-    tft.drawString("Memory:",182,60,2);
-    tft.setTextColor(TFT_GREEN,TFT_BLACK);
-    for (int i=0;i<10;i++){
-      sprintf(buf,"%d = %s, %d,%d ",i, memories[i].isDab?"Dab":"FM", memories[i].isDab?memories[i].dabChannel:memories[i].fmFreq, memories[i].isDab?memories[i].dabServiceID:NULL);
-      tft.drawString(buf,182,75+(i*8),1);
+      tft.fillRect(2,2,320,200,TFT_BLACK);
+      tft.setTextDatum(ML_DATUM);
+      tft.setTextPadding(50);
+      tft.setTextColor(TFT_YELLOW,TFT_BLACK);
+
+      if (wifiAvailable || wifiAPMode){
+        tft.setTextColor(TFT_YELLOW,TFT_BLACK);
+        tft.drawString("WiFi:",2,10,2);
+        tft.setTextColor(TFT_GREEN,TFT_BLACK);
+        tft.drawString("SSID        :" + String(WiFi.SSID()),2,25,1);
+        sprintf(buf,"IP Address  :%d.%d.%d.%d", WiFi.localIP()[0],WiFi.localIP()[1],WiFi.localIP()[2],WiFi.localIP()[3]);
+        tft.drawString(buf,2,33,1);
+        tft.drawString("RSSI        :" + String(WiFi.RSSI()),2,41,1); 
+      }
+
+      if (settings.isDab){
+        tft.setTextColor(TFT_GREENYELLOW, TFT_BLACK);
+        tft.drawString("Service:",2,60,2);
+        tft.setTextColor(TFT_GREEN,TFT_BLACK);
+        for (int i=0;i<Dab.numberofservices;i++){
+          sprintf(buf,"%2d=(%d) %s",i, Dab.service[i].ServiceID, Dab.service[i].Label);
+          tft.drawString(buf,2,75+(i*8),1);
+        }
+      }
+
+      tft.setTextColor(TFT_GREENYELLOW, TFT_BLACK);
+      tft.drawString("Memory:",182,60,2);
+      tft.setTextColor(TFT_GREEN,TFT_BLACK);
+      for (int i=0;i<10;i++){
+        sprintf(buf,"%d = %s, %d,%d ",i, memories[i].isDab?"Dab":"FM", memories[i].isDab?memories[i].dabChannel:memories[i].fmFreq, memories[i].isDab?memories[i].dabServiceID:NULL);
+        tft.drawString(buf,182,75+(i*8),1);
+      }
     }
   }
 
@@ -1143,8 +1154,13 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   }
 
   if (String(button.name).substring(0,3) =="A00") {
+    bool reachedNull = false;
     if (String(button.name).substring(3)=="M"){
-      if (keyboardNumber>0) keyboardNumber--;
+      if (keyboardNumber>0){
+        keyboardNumber--;
+      } else {
+        reachedNull = true;
+      }
     }
     else if (String(button.name).substring(3)=="P") {
       keyboardNumber++;
@@ -1156,6 +1172,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
 
     if (settings.activeBtn==FindButtonIDByName("Tune")){
       if (settings.isDab && keyboardNumber>=DAB_FREQS) keyboardNumber=0;
+      if (settings.isDab && reachedNull) keyboardNumber=DAB_FREQS-1;
       if (!settings.isDab && keyboardNumber>107900) keyboardNumber=0;
     } 
     if (settings.activeBtn==FindButtonIDByName("Vol")){
@@ -1163,15 +1180,18 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     } 
     if (settings.activeBtn==FindButtonIDByName("Service")){
       if (keyboardNumber>Dab.numberofservices - 1) keyboardNumber=0;
+      if (reachedNull) keyboardNumber=Dab.numberofservices - 1;
     } 
     if (settings.activeBtn==FindButtonIDByName("MEM")){
       if (keyboardNumber>9) keyboardNumber=0;
+      if (reachedNull) keyboardNumber=9;
     } 
     if (settings.activeBtn==FindButtonIDByName("Save")){
       if (keyboardNumber>9) keyboardNumber=0;
     }
     if (settings.activeBtn==FindButtonIDByName("LoadList")){
-      if (keyboardNumber>settings.dabChannelsCount) keyboardNumber=0;
+      if (keyboardNumber>settings.dabChannelsCount-1) keyboardNumber=0;
+      if (reachedNull) keyboardNumber=settings.dabChannelsCount-1;
     }
     if (doDraw) DrawKeyboardNumber(false);
   }
@@ -1456,8 +1476,7 @@ bool LoadStationList() {
 /***************************************************************************************
 **            De rest
 ***************************************************************************************/
-void DABSpiMsg(unsigned char *data, uint32_t len)
-{
+void DABSpiMsg(unsigned char *data, uint32_t len){
   hspi->beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));    //2MHz for starters...
   digitalWrite (slaveSelectPin, LOW);
   hspi->transfer(data, len);
