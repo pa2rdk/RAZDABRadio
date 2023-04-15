@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////
-// V0.91 Code netjes
-// V0.90 DABShield on own SPI interface    
+// V0.91 Pin 12 changed to 35 on HSPI
+// V0.90 DABShield on own SPI interface PAS OP.... Ik heb de library aangepast.    
 // V0.88 Debug on serial print
 // V0.87 Cache
 // V0.86 NoCache
@@ -104,6 +104,11 @@ const char *const audiomode[]  = {mode_0,mode_1,mode_2,mode_3};
 #define DAB_INTERRUPT 26
 #define DAB_RESET     32
 #define DAB_PWREN     27  
+
+#define HSPI_MISO   35
+#define HSPI_MOSI   13
+#define HSPI_SCLK   14
+#define HSPI_SS     15
 
 typedef struct  // WiFi Access
 {
@@ -282,7 +287,9 @@ void setup() {
   digitalWrite(slaveSelectPin, HIGH);
   SPI.begin(); 
   hspi = new SPIClass(HSPI);
-  hspi->begin();
+  //hspi->begin();
+  hspi->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_SS);
+  
   
   tft.init();
   tft.setRotation(screenRotation);
