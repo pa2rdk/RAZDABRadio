@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.94 Drastic interface changes
 // V0.93 Info button acts as loop through all channels.
 // V0.92 Sort and save channel list
 // V0.91 Pin 12 changed to 35 on HSPI
@@ -123,14 +124,12 @@ const char *const audiomode[]  = {mode_0,mode_1,mode_2,mode_3};
 #define HSPI_SCLK   14
 #define HSPI_SS     15
 
-typedef struct  // WiFi Access
-{
+typedef struct { // WiFi Access
   const char *SSID;
   const char *PASSWORD;
 } wlanSSID;
 
-typedef struct // Buttons
-{
+typedef struct {// Buttons
     const char *name;     // Buttonname
     const char *caption;  // Buttoncaption
     char waarde[12];  // Buttontext
@@ -155,6 +154,7 @@ typedef struct {
   uint8_t dabChannel;
   uint16_t dabServiceID;
   char dabName[40];
+  bool noLogo;
 } DABChannel;
 
 typedef struct {
@@ -178,44 +178,46 @@ typedef struct {
   byte currentBrightness;
   uint8_t dabChannelsCount;  
   uint8_t dabChannelSelected;
+  bool showOnlyCachedLogos;
   bool isDebug;
 } Settings;
 
 const Button buttons[] = {
-    {"ToLeft","<<","",  BTN_ARROW,  2,208,154,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"ToRight",">>","", BTN_ARROW,162,208,154,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
+  {"ToLeft","<<","",  BTN_ARROW,  2,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"ToRight",">>","", BTN_ARROW,242,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
 
-    {"Vol","Vol","",            1,  2,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Mute","Mute","",          1, 82,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Light","Light","",        1,162,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Off","Off","",            1,242,100, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"Vol","Vol","",            1,  2,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"Tune","Tune","",          1, 82,136, 74,30, TFT_BLUE, TFT_WHITE},
+  {"LoadList","Channels","",  1,162,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
+  {"MEM","MEM","",            1,242,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  
+  {"Mute","Mute","",          1,  2,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"Mode","Mode","",          1, 82,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
+  {"Info","Info","",          1,162,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"Save","Save","",          1,242,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
 
-    {"Tune","Scan","",          1,  2,136, 74,30, TFT_BLUE, TFT_WHITE},
-    {"Service","Select","",    1, 82,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"MEM","MEM","",            1,162,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Save","Save","",        1,242,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"Light","Light","",        1, 82,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"Off","Off","",            1,162,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
 
-    {"Info","Info","",          1,  2,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Mode","Mode","",          1, 82,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
-    {"LoadList","Channels","",  1,162,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
-    {"Stereo","Stereo","",      1,242,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  //{"Service","Select","",    1, 82,136, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  //{"Stereo","Stereo","",      1,242,172, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},
 
-    {"A001","1","",     BTN_NUMERIC, 42,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"A002","2","",     BTN_NUMERIC,122,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
-    {"A003","3","",     BTN_NUMERIC,202,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"A004","4","",     BTN_NUMERIC, 42,136,74,30, TFT_BLUE, TFT_BUTTONCOLOR},  
-    {"A005","5","",     BTN_NUMERIC,122,136,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"A006","6","",     BTN_NUMERIC,202,136,74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
-    {"A007","7","",     BTN_NUMERIC, 42,172,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"A008","8","",     BTN_NUMERIC,124,172,74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
-    {"A009","9","",     BTN_NUMERIC,202,172,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"Clear","Clear","",BTN_NUMERIC, 42,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
-    {"A000","0","",     BTN_NUMERIC,122,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR},       
-    {"Enter","Enter","",BTN_NUMERIC,202,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR},  
-    {"A00M","-","",     BTN_NUMERIC,  2,100,35,137, TFT_BLUE, TFT_BUTTONCOLOR},
-    {"A00P","+","",     BTN_NUMERIC,282,100,35,137, TFT_BLUE, TFT_BUTTONCOLOR},
- 
-    {"Close","Close","",  BTN_CLOSE,122,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},     
+  {"A001","1","",     BTN_NUMERIC, 42,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"A002","2","",     BTN_NUMERIC,122,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
+  {"A003","3","",     BTN_NUMERIC,202,100,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"A004","4","",     BTN_NUMERIC, 42,136,74,30, TFT_BLUE, TFT_BUTTONCOLOR},  
+  {"A005","5","",     BTN_NUMERIC,122,136,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"A006","6","",     BTN_NUMERIC,202,136,74,30, TFT_BLUE, TFT_BUTTONCOLOR},    
+  {"A007","7","",     BTN_NUMERIC, 42,172,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"A008","8","",     BTN_NUMERIC,124,172,74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
+  {"A009","9","",     BTN_NUMERIC,202,172,74,30, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"Clear","Clear","",BTN_NUMERIC, 42,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR}, 
+  {"A000","0","",     BTN_NUMERIC,122,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR},       
+  {"Enter","Enter","",BTN_NUMERIC,202,208,74,30, TFT_BLUE, TFT_BUTTONCOLOR},  
+  {"A00M","-","",     BTN_NUMERIC,  2,100,35,137, TFT_BLUE, TFT_BUTTONCOLOR},
+  {"A00P","+","",     BTN_NUMERIC,282,100,35,137, TFT_BLUE, TFT_BUTTONCOLOR},
+
+  {"Close","Close","",  BTN_CLOSE,122,208, 74,30, TFT_BLUE, TFT_BUTTONCOLOR},     
 };
 
 const int ledFreq          = 5000;
@@ -246,8 +248,10 @@ bool isOn = true;
 char actualInfo[100] = "\0";
 char lastInfo[100] = "\0";
 char dispInfo[100] = "\0";
+int namePos = 0;
+int nameLen = 24;
 int infoPos = 0;
-int infoLen = 30;
+int infoLen = 24;
 long infoTime = millis();
 int services[20] = {};
 DABChannel* dabChannels = 0;
@@ -284,7 +288,6 @@ void setup() {
   if (!SPIFFS.begin(true)) {
     if (settings.isDebug) Serial.println("SPIFFS Mount Failed");
   }
-  //SPIFFS.format();
 
   File configurations = SPIFFS.open("/config.txt", "r"); //open the config file
   if (!configurations) 
@@ -424,7 +427,6 @@ void loop() {
         int iPos = i+infoPos;
         if (iPos>=strlen(actualInfo)) iPos=iPos - strlen(actualInfo);
         dispInfo[i] = actualInfo[iPos];
-        if (settings.isDebug) Serial.printf("%s - %s / %d - %d\r\n",actualInfo, dispInfo,i,iPos);
       }
       dispInfo[strlen(actualInfo)] = '\0';
       infoPos++;
@@ -435,7 +437,7 @@ void loop() {
     {
       tft.setTextColor(TFT_GREEN, TFT_BLACK);
       tft.setTextPadding(tft.textWidth(dispInfo));  // String width + margin
-      tft.fillRect(2,60,252,13,TFT_BLACK);
+      tft.fillRect(2,60,188,13,TFT_BLACK);
       tft.drawString(dispInfo, 2, 65, 2);
     }
     else
@@ -497,17 +499,13 @@ void DrawTime(){
 void DrawServiceData(){
   if (actualPage==1){
     tft.setTextDatum(ML_DATUM);
-    if (settings.isDab)
-    {
+    if (settings.isDab){
       sprintf(actualInfo,"%s ", Dab.ServiceData);
-    }
-    else
-    {
+    } else {
       sprintf(actualInfo, "%02d/%02d/%04d %02d:%02d", Dab.Days, Dab.Months, Dab.Year, Dab.Hours, Dab.Minutes);
       tft.setTextColor(TFT_YELLOW, TFT_BLACK);
       tft.setTextPadding(tft.textWidth(actualInfo));  // String width + margin
       tft.drawString(actualInfo, 2, 4, 1);
-
       sprintf(actualInfo, "%s - %s ", Dab.ps, Dab.ServiceData);
     }
     if (strcmp(lastInfo,actualInfo)!=0){
@@ -523,6 +521,9 @@ void DrawFrequency(){
   if (actualPage<lastPage){
     tft.fillRect(0,0,320,99,TFT_BLACK);
     if (settings.isDab && Dab.freq_index>0){
+      DrawPatience(false,"Zoek logo");
+      GetDABLogo(settings.dabServiceID,Dab.EnsembleID,Dab.ECC,settings.showOnlyCachedLogos);
+      tft.fillRect(0,0,180,99,TFT_BLACK);
       tft.setTextColor(TFT_WHITE, TFT_BLACK);
       tft.setTextDatum(ML_DATUM);
       sprintf(buf, "%03d.%03d MHz", (uint16_t)(Dab.freq_khz(Dab.freq_index) / 1000),(uint16_t)(Dab.freq_khz(Dab.freq_index) % 1000));
@@ -530,7 +531,14 @@ void DrawFrequency(){
       tft.drawString(buf, 2,14,1);
       tft.setTextColor(TFT_CYAN, TFT_BLACK);
       if (settings.isDebug) Serial.printf("Draw fequency:%d,%d,%s - %d\r\n",Dab.service[actualDabService].ServiceID,actualDabService,Dab.service[actualDabService].Label,Dab.service[actualDabService].CompID);
-      if (Dab.numberofservices>0) tft.drawString(Dab.service[actualDabService].Label, 2,45,4);
+      if (Dab.numberofservices>0){
+        sprintf(buf,"%s",Dab.service[actualDabService].Label);
+        
+        if (strlen(buf)>12) buf[12] = '\0';
+
+        tft.drawString(buf, 2,45,4);
+        tft.fillRect(180, 30, 10, 30, TFT_BLACK);
+      }
     }
     if (!settings.isDab){
         tft.setTextColor(TFT_GOLD, TFT_BLACK);
@@ -544,17 +552,29 @@ void DrawFrequency(){
     DrawStatus();
     if (settings.isDab){
       if (settings.isDebug) Serial.printf("\r\nDabzaken ECC:%d, PI:%d, Ensemble:%s, RomID:%d, PartNo:%d,  VerMajor:%d, PS:%s, DabServiceID:%d, NumberOfServices:%d, EnsembleID:%d\r\n\r\n",Dab.ECC, Dab.pi, Dab.Ensemble,Dab.RomID,Dab.PartNo,Dab.VerMajor,Dab.ps, settings.dabServiceID, Dab.numberofservices,Dab.EnsembleID);
-      GetDABLogo(settings.dabServiceID,Dab.EnsembleID,Dab.ECC);
+      //GetDABLogo(settings.dabServiceID,Dab.EnsembleID,Dab.ECC);
     }
   }
 }
 
 void DrawPatience(){
-  tft.fillRect(0,0,320,99,TFT_BLACK);
+  DrawPatience(false,"Even geduld...");
+} 
+
+void DrawPatience(bool onBottom, String message){
   tft.setTextDatum(ML_DATUM);
   tft.setTextColor(TFT_RED, TFT_BLACK);
-  sprintf(buf, "Even geduld...");
-  tft.drawString(buf, 0,30,4);
+  
+  if (!onBottom){
+    if (actualPage==1 )
+      tft.fillRect(0,0,320,134,TFT_BLACK);
+    else
+      tft.fillRect(0,0,320, 98,TFT_BLACK);   
+    tft.drawString(message, 0, 30,4);    
+  } else {
+    tft.fillRect(0,136,320,240,TFT_BLACK);    
+    tft.drawString(message, 0,160,4);    
+  }
 }
 
 void DrawStatus(){
@@ -566,13 +586,10 @@ void DrawStatus(){
     Dab.status();
     sprintf(buf,"   RSSI:%d, SNR:%d, Quality:%d\%", Dab.signalstrength, Dab.snr, Dab.quality);
   }
-  // tft.setTextDatum(MR_DATUM);
-  // tft.setTextColor(TFT_RED, TFT_BLACK);
-  // tft.setTextPadding(tft.textWidth(buf));  // String width + margin
-  // tft.drawString(buf, 315, 4, 1);
 
-  DrawMeter(2,78,154,16,Dab.signalstrength,10,65,50,75,"RSSI:");
-  DrawMeter(162,78,154,16,Dab.snr,0,settings.isDab?20:40,50,75,"SNR:");
+  DrawBox(2, 96, 154, 33);
+  DrawMeter(5, 99,148,12,Dab.signalstrength,10,65,50,75,"RSSI:");
+  DrawMeter(5,114,148,12,Dab.snr,0,settings.isDab?20:40,50,75,"SNR:");
 }
 
 void DrawButtons(){
@@ -683,7 +700,8 @@ Button FindButtonInfo(Button button){
 
   if (button.name=="Tune") {
     if (settings.isDab){
-      sprintf(buttonBuf,"%d",settings.dabChannel);
+      //sprintf(buttonBuf,"%d",settings.dabChannel);
+      sprintf(buttonBuf,"%d (%d/%d)",settings.dabChannel,actualDabService+1,Dab.numberofservices);
       strcpy(button.waarde,buttonBuf);
     }
   }
@@ -697,19 +715,12 @@ Button FindButtonInfo(Button button){
     button.btnColor = settings.activeBtn==FindButtonIDByName("MEM")?TFT_GREY:TFT_BLUE;
   }
 
-  if (button.name=="Service") {
-    sprintf(buttonBuf,"        ");
-    if (settings.isDab && Dab.numberofservices>0){
-      sprintf(buttonBuf,"%d/%d",actualDabService,Dab.numberofservices - 1);
-    } 
-    strcpy(button.waarde,buttonBuf);
-    button.btnColor = settings.isDab?TFT_BLUE:TFT_GREY;
-  }
-
   if (button.name=="LoadList") {
     sprintf(buttonBuf,"        ");
-    if (settings.activeBtn==FindButtonIDByName("LoadList") && settings.dabChannelsCount>0) sprintf(buttonBuf,"%d/%d",settings.dabChannelSelected,settings.dabChannelsCount-1);
-    else sprintf(buttonBuf,"%d",settings.dabChannelsCount-1);
+    if (settings.activeBtn==FindButtonIDByName("LoadList") && settings.dabChannelsCount>0) 
+      sprintf(buttonBuf,"%d/%d",settings.dabChannelSelected+1,settings.dabChannelsCount);
+    else 
+      sprintf(buttonBuf,"%d",settings.dabChannelsCount);
     strcpy(button.waarde,buttonBuf);
   }
 
@@ -768,19 +779,30 @@ void DrawKeyboardNumber(bool doReset){
 void DrawMeter(int xPos, int yPos, int width, int height, int value, int minValue, int maxValue, int orangeColorPCT, int greenColorPCT,String dispText){
 
   tft.setTextDatum(MC_DATUM);
-  DrawBox(xPos, yPos, width, height);
+  // DrawBox(xPos, yPos, width, height);
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
 
-  int scale = ((width - 6)*10) / (maxValue-minValue);
+  int scale = (width*10) / (maxValue-minValue);
   for (int i = 0; i<maxValue-minValue;i++){
-    float mPos = ((i*scale)/10)+3+xPos;
+    float mPos = ((i*scale)/10)+xPos;
     uint16_t signColor = TFT_RED;
     if (i<=value){
       if (i>(((maxValue-minValue)*orangeColorPCT)/100)) signColor = TFT_ORANGE;
       if (i>(((maxValue-minValue)*greenColorPCT)/100)) signColor = TFT_GREEN;
-      tft.fillRect(mPos, yPos+2, (scale/10)+1, height-4, signColor);
+      tft.fillRect(mPos, yPos, (scale/10)+1, height, signColor);
     }
   }
+
+  // int scale = ((width - 6)*10) / (maxValue-minValue);
+  // for (int i = 0; i<maxValue-minValue;i++){
+  //   float mPos = ((i*scale)/10)+3+xPos;
+  //   uint16_t signColor = TFT_RED;
+  //   if (i<=value){
+  //     if (i>(((maxValue-minValue)*orangeColorPCT)/100)) signColor = TFT_ORANGE;
+  //     if (i>(((maxValue-minValue)*greenColorPCT)/100)) signColor = TFT_GREEN;
+  //     tft.fillRect(mPos, yPos+2, (scale/10)+1, height-4, signColor);
+  //   }
+  // }
   sprintf(buf,"%s%d",dispText,value);
   tft.setTextDatum(ML_DATUM);
   tft.setTextPadding(tft.textWidth(buf));
@@ -817,27 +839,33 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   if (button.name=="ToRight"){
     if (settings.activeBtn==FindButtonIDByName("Tune")){
       DrawPatience();
-      if (settings.isDab && settings.dabChannel<DAB_FREQS - 1){
-        settings.dabChannel++;
-        if (doDraw) DrawButton("Tune");
-        Dab.tune(settings.dabChannel);
-        while (Dab.numberofservices<1 && settings.dabChannel<DAB_FREQS - 1){
-          settings.dabChannel++;
-          if (doDraw) DrawButton("Tune");
-          Dab.tune(settings.dabChannel);
-        }
-        if (Dab.numberofservices<1 && settings.dabChannel==DAB_FREQS - 1){
-          while (Dab.numberofservices<1 && settings.dabChannel>0){
-            settings.dabChannel--;
+      if (settings.isDab){ 
+        if (actualDabService<Dab.numberofservices - 1){
+          actualDabService++;
+          settings.dabServiceID = Dab.service[actualDabService].ServiceID;
+        } else {
+          if (settings.dabChannel<DAB_FREQS - 1){
+            settings.dabChannel++;
             if (doDraw) DrawButton("Tune");
             Dab.tune(settings.dabChannel);
+            while (Dab.numberofservices<1 && settings.dabChannel<DAB_FREQS - 1){
+              settings.dabChannel++;
+              if (doDraw) DrawButton("Tune");
+              Dab.tune(settings.dabChannel);
+            }
+            if (Dab.numberofservices<1 && settings.dabChannel==DAB_FREQS - 1){
+              while (Dab.numberofservices<1 && settings.dabChannel>0){
+                settings.dabChannel--;
+                if (doDraw) DrawButton("Tune");
+                Dab.tune(settings.dabChannel);
+              }
+            }
+            actualDabChannel = settings.dabChannel;
+            actualDabService = 0;
+            settings.dabServiceID = Dab.service[actualDabService].ServiceID;
           }
         }
-        actualDabChannel = settings.dabChannel;
-        actualDabService = 0;
-        settings.dabServiceID = Dab.service[actualDabService].ServiceID;
         SetRadio();
-        settings.activeBtn=FindButtonIDByName("Service");
         if (settings.isDebug) Serial.printf("Tune:%d, Service:%d, Channels:%d",settings.dabChannel,actualDabService,DAB_FREQS);
       } 
       if (!settings.isDab){
@@ -845,17 +873,6 @@ void HandleButton(Button button, int x, int y, bool doDraw){
         settings.fmFreq = Dab.freq*10;
         if (settings.isDebug) Serial.println(settings.fmFreq);
         DrawFrequency();
-      }
-      if (doDraw) DrawButtons();
-    }
-    else if (settings.activeBtn==FindButtonIDByName("Service")){
-      if (settings.isDab && actualDabService<Dab.numberofservices - 1){
-        actualDabService++;
-        settings.dabServiceID = Dab.service[actualDabService].ServiceID;
-        SetRadio();
-      }
-      if (actualDabService==Dab.numberofservices - 1){
-        settings.activeBtn=FindButtonIDByName("Tune");
       }
       if (doDraw) DrawButtons();
     }
@@ -892,43 +909,38 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   if (button.name=="ToLeft"){
     if (settings.activeBtn==FindButtonIDByName("Tune")){
       DrawPatience();
-      if (settings.isDab && settings.dabChannel>0){
-        settings.dabChannel--;
-        Dab.tune(settings.dabChannel);
-        while (Dab.numberofservices<1 && settings.dabChannel>0){
-          settings.dabChannel--;
-          if (doDraw) DrawButton("Tune");
-          Dab.tune(settings.dabChannel);
-        }
-        if (Dab.numberofservices<1 && settings.dabChannel==0){
-          while (Dab.numberofservices<1 && settings.dabChannel<DAB_FREQS - 1){
-            settings.dabChannel++;
-            if (doDraw) DrawButton("Tune");
+      if (settings.isDab){
+        if (actualDabService>0){
+          actualDabService--;
+          settings.dabServiceID = Dab.service[actualDabService].ServiceID;
+        } else {
+          if (settings.dabChannel>0){
+            settings.dabChannel--;
             Dab.tune(settings.dabChannel);
+            while (Dab.numberofservices<1 && settings.dabChannel>0){
+              settings.dabChannel--;
+              if (doDraw) DrawButton("Tune");
+              Dab.tune(settings.dabChannel);
+            }
+            if (Dab.numberofservices<1 && settings.dabChannel==0){
+              while (Dab.numberofservices<1 && settings.dabChannel<DAB_FREQS - 1){
+                settings.dabChannel++;
+                if (doDraw) DrawButton("Tune");
+                Dab.tune(settings.dabChannel);
+              }
+            }
+            actualDabChannel = settings.dabChannel;
+            actualDabService = Dab.numberofservices - 1;
+            settings.dabServiceID = Dab.service[actualDabService].ServiceID;
           }
         }
-        actualDabChannel = settings.dabChannel;
-        actualDabService = Dab.numberofservices - 1;
-        settings.dabServiceID = Dab.service[actualDabService].ServiceID;
         SetRadio();
-        settings.activeBtn=FindButtonIDByName("Service");
         if (settings.isDebug) Serial.printf("Tune:%d, Service:%d, Channels:%d",settings.dabChannel,actualDabService,DAB_FREQS);
       } 
       if (!settings.isDab){
         Dab.seek(0,1);
         settings.fmFreq = Dab.freq*10;
         DrawFrequency();
-      }
-      if (doDraw) DrawButtons();
-    }
-    else if (settings.activeBtn==FindButtonIDByName("Service")){
-      if (settings.isDab && actualDabService>0){
-        actualDabService--;
-        settings.dabServiceID = Dab.service[actualDabService].ServiceID;
-        SetRadio();
-      }
-      if (actualDabService==0){
-        settings.activeBtn=FindButtonIDByName("Tune");
       }
       if (doDraw) DrawButtons();
     }
@@ -1015,12 +1027,19 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   if(button.name =="Info"){
     if (settings.activeBtn==FindButtonIDByName("LoadList")){
       settings.dabChannelSelected = 0;
+      qsort(dabChannels, settings.dabChannelsCount, sizeof(DABChannel), SortOnDabChannel);
+      DrawPatience(true,"Ophalen logo's");
       for (int i=0;i<settings.dabChannelsCount-1;i++){
+        sprintf(buf,"Ophalen logo's (%d/%d)",i+1,settings.dabChannelsCount);
+        DrawPatience(true, buf);
         settings.dabChannelSelected++;
         SetRadioFromList(settings.dabChannelSelected);
-        if (doDraw) DrawButtons();
+        //if (doDraw) DrawFrequency();
         delay(1000);
       }
+      qsort(dabChannels, settings.dabChannelsCount, sizeof(DABChannel), SortOnDabName);
+      settings.showOnlyCachedLogos = true;
+      if (doDraw) DrawButtons();
     } else {
       actualPage=lastPage;
       DrawScreen();
@@ -1147,19 +1166,42 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   }
 
   if (button.name=="Off") {
-    isOn = false;
-    actualPage=1;
-    DoTurnOff();
-    delay(500);
+    long startOffPressed = millis();
+    uint16_t x = 0, y = 0;
+    bool pressed = tft.getTouch(&x, &y);
+    while (pressed && millis() - startOffPressed<6000) pressed = tft.getTouch(&x, &y);   
+    if (millis() - startOffPressed>5000){
+      DrawPatience(false,"Channels gereset");
+      if (settings.isDebug) Serial.printf("Off pressed for %d seconds\r\n",millis()/1000 - startOffPressed);
+
+      SPIFFS.format();
+      settings.dabChannelSelected=0;
+      settings.dabChannelsCount=0;
+      dabChannels={};
+      delay(1000);
+      DrawScreen();
+    } 
+    if (millis() - startOffPressed<500){
+      isOn = false;
+      actualPage=1;
+      DoTurnOff();
+      delay(500);
+    }
   }
 
   if (String(button.name).substring(0,3) =="A00") {
     bool reachedNull = false;
     if (String(button.name).substring(3)=="M"){
-      if (keyboardNumber>0){
-        keyboardNumber--;
+      if (settings.activeBtn==FindButtonIDByName("LoadList")){
+        if (keyboardNumber>1)
+          keyboardNumber--;
+        else
+          reachedNull = true;
       } else {
-        reachedNull = true;
+        if (keyboardNumber>0)
+          keyboardNumber--;
+        else
+          reachedNull = true;
       }
     }
     else if (String(button.name).substring(3)=="P") {
@@ -1190,8 +1232,8 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (keyboardNumber>9) keyboardNumber=0;
     }
     if (settings.activeBtn==FindButtonIDByName("LoadList")){
-      if (keyboardNumber>settings.dabChannelsCount-1) keyboardNumber=0;
-      if (reachedNull) keyboardNumber=settings.dabChannelsCount-1;
+      if (keyboardNumber>settings.dabChannelsCount) keyboardNumber=1;
+      if (reachedNull) keyboardNumber=settings.dabChannelsCount;
     }
     if (doDraw) DrawKeyboardNumber(false);
   }
@@ -1254,9 +1296,10 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     } else {
       actualPage = 1;
       if (settings.activeBtn==FindButtonIDByName("LoadList")){
-        settings.dabChannelSelected=keyboardNumber;
+        settings.dabChannelSelected=0;
         settings.dabChannelsCount=0;
         dabChannels={};
+        settings.showOnlyCachedLogos = false;
       }
       if (doDraw) DrawScreen();
     }
@@ -1280,8 +1323,8 @@ void SetRadioFromList(int channel){
   DrawPatience();
   settings.isDab = true;
   settings.isStereo = true;
-  settings.dabChannel = dabChannels[channel].dabChannel;
-  settings.dabServiceID = dabChannels[channel].dabServiceID;
+  settings.dabChannel = dabChannels[channel-1].dabChannel;
+  settings.dabServiceID = dabChannels[channel-1].dabServiceID;
   SetRadio(false, false);
   if (settings.isDab) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
   if (settings.isDebug) Serial.printf("Set from List: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
@@ -1374,7 +1417,7 @@ void LoadList(){
     } 
     settings.dabChannelSelected=0;
     SaveStationList();
-    SetRadioFromList(0);
+    SetRadioFromList(1);
   } 
 }
 
@@ -1447,14 +1490,20 @@ bool LoadMemories() {
   return true;
 }
 
-int compare(const void *v1, const void *v2){
+int SortOnDabName(const void *v1, const void *v2){
     DABChannel *ia = (DABChannel *)v1;
     DABChannel *ib = (DABChannel *)v2;
     return strcmp(ia->dabName, ib->dabName);
 }
 
+int SortOnDabChannel(const void *v1, const void *v2){
+    DABChannel *ia = (DABChannel *)v1;
+    DABChannel *ib = (DABChannel *)v2;
+    return ia->dabChannel-ib->dabChannel;
+}
+
 bool SaveStationList() {
-  qsort(dabChannels, settings.dabChannelsCount, sizeof(DABChannel), compare);
+  qsort(dabChannels, settings.dabChannelsCount, sizeof(DABChannel), SortOnDabName);
   for (int i=0; i<settings.dabChannelsCount;i++)
     for (unsigned int t = 0; t < sizeof(DABChannel); t++)
       EEPROM.write(offsetEEPROM + sizeof(settings) + sizeof(memories) + (i*sizeof(DABChannel)) + 10 + t, *((char*)&dabChannels[i] + t)); 
@@ -1486,7 +1535,7 @@ void DABSpiMsg(unsigned char *data, uint32_t len){
 /***************************************************************************************
 **            Logo's
 ***************************************************************************************/
-uint16_t GetDABLogo(uint16_t ServiceID, uint16_t EnsembleID, uint16_t ECC) {
+uint16_t GetDABLogo(uint16_t ServiceID, uint16_t EnsembleID, uint16_t ECC, bool onlyCached) {
   uint16_t GCC = ECC + ((ServiceID >> 4) & 0xF00);
   char radioDNS[128];
   char bearer[128];
@@ -1503,6 +1552,7 @@ uint16_t GetDABLogo(uint16_t ServiceID, uint16_t EnsembleID, uint16_t ECC) {
     DrawLogo(ServiceID);
     return ServiceID;
   } 
+  if (onlyCached) return ServiceID;
   return GetLogo(radioDNS, bearer, ServiceID);
 }
 
@@ -2080,11 +2130,22 @@ void DrawLogo(uint32_t id) {
 }
 
 void PNGDraw(PNGDRAW *pDraw) {
-  if ((pDraw->y % 2) == 0){
+  PNGDraw(pDraw, false);
+}
+
+void PNGDraw(PNGDRAW *pDraw, bool halfSize) {
+  if (halfSize){
+    if ((pDraw->y % 2) == 0){
+      uint16_t usPixels[128];
+      png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
+      for (int i=0;i<128;i++)
+        if ( (i % 2) == 0) tft.drawPixel(254+floor(i/2),6+floor(pDraw->y/2),usPixels[i]);
+    }
+  } else {
     uint16_t usPixels[128];
     png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
     for (int i=0;i<128;i++)
-      if ( (i % 2) == 0) tft.drawPixel(254+floor(i/2),6+floor(pDraw->y/2),usPixels[i]);
+      tft.drawPixel(190+i,2+pDraw->y,usPixels[i]);
   }
 }
 
