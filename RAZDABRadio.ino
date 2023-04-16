@@ -84,6 +84,8 @@
 #include <ArduinoJson.h>
 #include <tinyxml2.h>
 #include <PNGdec.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
 #include <pthread.h>
 #include "freertos/FreeRTOS.h"
@@ -230,6 +232,8 @@ DAB Dab;
 TFT_eSPI tft = TFT_eSPI();            // Invoke custom library
 DABTime dabtime;
 WiFiMulti wifiMulti;
+AsyncWebServer server(80);
+AsyncEventSource events("/events");
 PNG png;
 SPIClass * hspi = NULL;
 
@@ -273,6 +277,124 @@ char *servicexml;
 char imageurl[128];
 char mime[32];
 
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML>
+<html>
+<head>
+  <style>
+    html {
+    font-family: Arial; 
+    display: inline-block; 
+    text-align: center;
+    background-color: black; 
+  }
+  p { 
+      font-size: 1.2rem;
+  }
+  body {  
+      margin: 0;
+  }
+  .hwidth {
+      width: 50%;
+  }
+
+  .fwidth {
+      width: 100%;
+  }
+
+  .topnav { 
+      overflow: hidden; 
+      background-color: blue; 
+      color: white; 
+      font-size: 1rem; 
+      line-height: 0%;
+  }
+  .divinfo { 	
+      overflow: hidden; 
+      background-color: black; 
+      color: white; 
+      font-size: 0.7rem; 
+      height:100;
+      line-height: 0%;
+  }
+
+  .content { 
+      padding: 20px; 
+  }
+
+  </style>
+  <title>DAB Radio Server</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- <meta http-equiv="refresh" content="1">  -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" type="text/css" href="style.css">
+  </head>
+  <body>
+    <div class="topnav">
+      <h1>DAB Radio Server</h1>
+      <br>
+      <h2>Settings</h2>
+    </div>
+    <hr>
+    <div class="divinfo">
+      <form action="/store" method="get">
+
+      <div class="divinfo">
+        <table class="fwidth">
+          <tr>
+            <td class="hwidth" style="text-align:right;font-size: medium; color: white">
+              WiFi SSID: 
+            </td>
+            <td class="hwidth" style="text-align:left;font-size: medium;">
+              <input type="text" name="wifiSSID" value="%wifiSSID%">
+            </td>
+          </tr>
+
+          <tr>
+            <td class="hwidth" style="text-align:right;font-size: medium; color: white">
+              WiFi Password:
+            </td>
+            <td class="hwidth" style="text-align:left;font-size: medium;">
+              <input type="password" name="wifiPass" value="%wifiPass%">
+            </td>
+          </tr>
+
+          <tr>
+            <td></td>
+            <td class="fwidth" style="text-align:center;font-size: medium;">
+              <input style="font-size: medium" type="submit" value="Submit">
+            </td>
+          </tr>
+        </table>
+      </div>
+      
+    </form><br>
+  </div>
+  <hr>
+
+  <div class="topnav" style="background-color: lightblue; ">
+    <table class="fwidth">
+        <tr>
+          <td class="hwidth" style="text-align:left">
+            <h4>Copyright (c) Robert de Kok, PA2RDK</h4>
+          </td>
+        </tr>
+    </table>
+  </div>
+
+  <script>
+  if(typeof window.history.pushState == 'function') {
+    if (window.location.href.lastIndexOf('/command')>10 || window.location.href.lastIndexOf('/reboot')>10 || window.location.href.lastIndexOf('/store')>10){
+      console.log(window.location.href);
+      window.location.href =  window.location.href.substring(0,window.location.href.lastIndexOf('/'))
+    }
+  }
+  </script>
+
+  </body>
+  </html>
+)rawliteral";
+
 void setup() {
   pinMode(DISPLAYLEDPIN, OUTPUT);
   digitalWrite(DISPLAYLEDPIN, 0);
@@ -305,7 +427,6 @@ void setup() {
   hspi = new SPIClass(HSPI);
   //hspi->begin();
   hspi->begin(HSPI_SCLK, HSPI_MISO, HSPI_MOSI, HSPI_SS);
-  
   
   tft.init();
   tft.setRotation(screenRotation);
@@ -362,8 +483,15 @@ void setup() {
   } else {
     wifiAPMode=true;
     WiFi.mode(WIFI_AP);
-    WiFi.softAP("APRSTRX", NULL);
+    WiFi.softAP("RAZDABRadio", NULL);
   } 
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/html", index_html, processor);
+  });
+  
+  server.begin();
+  if (settings.isDebug) Serial.println("HTTP server started");
 
   settings.isMuted=0;
   SetRadio(true);
@@ -408,6 +536,7 @@ bool Connect2WiFi(){
 }
 
 void loop() {
+  //server.handleClient();
   if (millis()-lastTime>1000 && actualPage<lastPage){
     DrawTime();
     DrawStatus();
@@ -2172,6 +2301,17 @@ int32_t myRead(PNGFILE *handle, uint8_t *buffer, int32_t length) {
 int32_t mySeek(PNGFILE *handle, int32_t position) {
   if (!myfile) return 0;
   return myfile.seek(position);
+}
+
+/***************************************************************************************
+**            Web setup page 
+***************************************************************************************/
+String processor(const String& var){
+  //Serial.println(var);
+  // if(var == "FORMPLACEHOLDER"){
+  //   return form_html;
+  // }
+  return String();
 }
 /***************************************************************************************
 **            Calibrate touch
