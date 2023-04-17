@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V0.95 Start of webinterface
 // V0.94 Drastic interface changes
 // V0.93 Info button acts as loop through all channels.
 // V0.92 Sort and save channel list
@@ -277,123 +278,7 @@ char *servicexml;
 char imageurl[128];
 char mime[32];
 
-const char index_html[] PROGMEM = R"rawliteral(
-<!DOCTYPE HTML>
-<html>
-<head>
-  <style>
-    html {
-    font-family: Arial; 
-    display: inline-block; 
-    text-align: center;
-    background-color: black; 
-  }
-  p { 
-      font-size: 1.2rem;
-  }
-  body {  
-      margin: 0;
-  }
-  .hwidth {
-      width: 50%;
-  }
-
-  .fwidth {
-      width: 100%;
-  }
-
-  .topnav { 
-      overflow: hidden; 
-      background-color: blue; 
-      color: white; 
-      font-size: 1rem; 
-      line-height: 0%;
-  }
-  .divinfo { 	
-      overflow: hidden; 
-      background-color: black; 
-      color: white; 
-      font-size: 0.7rem; 
-      height:100;
-      line-height: 0%;
-  }
-
-  .content { 
-      padding: 20px; 
-  }
-
-  </style>
-  <title>DAB Radio Server</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- <meta http-equiv="refresh" content="1">  -->
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" type="text/css" href="style.css">
-  </head>
-  <body>
-    <div class="topnav">
-      <h1>DAB Radio Server</h1>
-      <br>
-      <h2>Settings</h2>
-    </div>
-    <hr>
-    <div class="divinfo">
-      <form action="/store" method="get">
-
-      <div class="divinfo">
-        <table class="fwidth">
-          <tr>
-            <td class="hwidth" style="text-align:right;font-size: medium; color: white">
-              WiFi SSID: 
-            </td>
-            <td class="hwidth" style="text-align:left;font-size: medium;">
-              <input type="text" name="wifiSSID" value="%wifiSSID%">
-            </td>
-          </tr>
-
-          <tr>
-            <td class="hwidth" style="text-align:right;font-size: medium; color: white">
-              WiFi Password:
-            </td>
-            <td class="hwidth" style="text-align:left;font-size: medium;">
-              <input type="password" name="wifiPass" value="%wifiPass%">
-            </td>
-          </tr>
-
-          <tr>
-            <td></td>
-            <td class="fwidth" style="text-align:center;font-size: medium;">
-              <input style="font-size: medium" type="submit" value="Submit">
-            </td>
-          </tr>
-        </table>
-      </div>
-      
-    </form><br>
-  </div>
-  <hr>
-
-  <div class="topnav" style="background-color: lightblue; ">
-    <table class="fwidth">
-        <tr>
-          <td class="hwidth" style="text-align:left">
-            <h4>Copyright (c) Robert de Kok, PA2RDK</h4>
-          </td>
-        </tr>
-    </table>
-  </div>
-
-  <script>
-  if(typeof window.history.pushState == 'function') {
-    if (window.location.href.lastIndexOf('/command')>10 || window.location.href.lastIndexOf('/reboot')>10 || window.location.href.lastIndexOf('/store')>10){
-      console.log(window.location.href);
-      window.location.href =  window.location.href.substring(0,window.location.href.lastIndexOf('/'))
-    }
-  }
-  </script>
-
-  </body>
-  </html>
-)rawliteral";
+#include "webpages.h";
 
 void setup() {
   pinMode(DISPLAYLEDPIN, OUTPUT);
@@ -411,12 +296,6 @@ void setup() {
     if (settings.isDebug) Serial.println("SPIFFS Mount Failed");
   }
 
-  File configurations = SPIFFS.open("/config.txt", "r"); //open the config file
-  if (!configurations) 
-  {
-    if (settings.isDebug) Serial.println("Failed to open config file");
-     
-  }
   ledcSetup(ledChannelforTFT, ledFreq, ledResol);
   ledcAttachPin(DISPLAYLEDPIN, ledChannelforTFT);
 
@@ -438,8 +317,7 @@ void setup() {
   Dab.setCallback(DrawServiceData);
   Dab.begin(DAB_BAND, DAB_INTERRUPT, DAB_RESET, DAB_PWREN);
 
-  if(Dab.error != 0)
-  {
+  if(Dab.error != 0){
     sprintf(dispInfo, "DAB Error %02d",Dab.error);
     DrawButton(80,120,160,30,dispInfo,"",TFT_RED,TFT_WHITE,"");
     if (settings.isDebug) Serial.printf("failed to initialize DAB shield %d",Dab.error); 
@@ -481,6 +359,7 @@ void setup() {
     DrawButton(80,80,160,30,"Connected to WiFi",WiFi.SSID(),TFT_RED,TFT_WHITE,"");
     delay(1000);
   } else {
+    DrawButton(75,80,170,30,"Connect to RAZDABRadio",WiFi.SSID(),TFT_RED,TFT_WHITE,"");
     wifiAPMode=true;
     WiFi.mode(WIFI_AP);
     WiFi.softAP("RAZDABRadio", NULL);
@@ -490,6 +369,34 @@ void setup() {
     request->send_P(200, "text/html", index_html, processor);
   });
   
+  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "/style.css", style_html);
+  });
+
+  server.on("/settings", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    request->send_P(200, "text/html", settings_html, processor);
+  });
+
+  server.on("/store", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    SaveSettings(request);
+    SaveConfig();
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/reboot", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "Rebooting");
+    ESP.restart();
+  });
+    
+  events.onConnect([](AsyncEventSourceClient *client){
+    Serial.println("Connect web");
+    if(client->lastId()){
+      Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
+    }
+    client->send("hello!", NULL, millis(), 10000);
+  });
+  server.addHandler(&events);
+
   server.begin();
   if (settings.isDebug) Serial.println("HTTP server started");
 
@@ -577,6 +484,7 @@ void loop() {
       tft.fillRect(2,11,318,6,TFT_BLACK);
       tft.drawString(dispInfo, 2, 14, 1);
     }
+    events.send(dispInfo,"DABRDS",millis());
   }
 
   if (millis()-pressTime>100){
@@ -668,6 +576,7 @@ void DrawFrequency(){
         tft.drawString(buf, 2,45,4);
         tft.fillRect(180, 30, 10, 30, TFT_BLACK);
       }
+      events.send(Dab.service[actualDabService].Label,"DABName",millis());
     }
     if (!settings.isDab){
         tft.setTextColor(TFT_GOLD, TFT_BLACK);
@@ -679,10 +588,7 @@ void DrawFrequency(){
         tft.drawString("MHz", 315,50,4);
     }
     DrawStatus();
-    if (settings.isDab){
-      if (settings.isDebug) Serial.printf("\r\nDabzaken ECC:%d, PI:%d, Ensemble:%s, RomID:%d, PartNo:%d,  VerMajor:%d, PS:%s, DabServiceID:%d, NumberOfServices:%d, EnsembleID:%d\r\n\r\n",Dab.ECC, Dab.pi, Dab.Ensemble,Dab.RomID,Dab.PartNo,Dab.VerMajor,Dab.ps, settings.dabServiceID, Dab.numberofservices,Dab.EnsembleID);
-      //GetDABLogo(settings.dabServiceID,Dab.EnsembleID,Dab.ECC);
-    }
+    if (settings.isDab && settings.isDebug) Serial.printf("\r\nDabzaken ECC:%d, PI:%d, Ensemble:%s, RomID:%d, PartNo:%d,  VerMajor:%d, PS:%s, DabServiceID:%d, NumberOfServices:%d, EnsembleID:%d\r\n\r\n",Dab.ECC, Dab.pi, Dab.Ensemble,Dab.RomID,Dab.PartNo,Dab.VerMajor,Dab.ps, settings.dabServiceID, Dab.numberofservices,Dab.EnsembleID);
   }
 }
 
@@ -861,6 +767,16 @@ Button FindButtonInfo(Button button){
 
   if (button.name=="Light") {
     sprintf(buttonBuf,"%d",settings.currentBrightness);
+    strcpy(button.waarde,buttonBuf);
+  }
+
+  if (button.name=="Info") {
+    sprintf(buttonBuf,"%s",(settings.activeBtn==FindButtonIDByName("LoadList") && settings.dabChannelsCount>0)?"Zoek logos":"");
+    strcpy(button.waarde,buttonBuf);
+  }
+
+  if (button.name=="Off") {
+    sprintf(buttonBuf,"%s",(settings.activeBtn==FindButtonIDByName("LoadList") && settings.dabChannelsCount>0)?"5sec reset":"");
     strcpy(button.waarde,buttonBuf);
   }
 
@@ -1299,16 +1215,19 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     uint16_t x = 0, y = 0;
     bool pressed = tft.getTouch(&x, &y);
     while (pressed && millis() - startOffPressed<6000) pressed = tft.getTouch(&x, &y);   
-    if (millis() - startOffPressed>5000){
-      DrawPatience(false,"Channels gereset");
-      if (settings.isDebug) Serial.printf("Off pressed for %d seconds\r\n",millis()/1000 - startOffPressed);
+    if (((millis() - startOffPressed)>5000)){
+      if ((settings.activeBtn==FindButtonIDByName("LoadList")) && (settings.dabChannelsCount>0)){
+        DrawPatience(false,"Channels gereset");
+        if (settings.isDebug) Serial.printf("Off pressed for %d seconds\r\n",millis()/1000 - startOffPressed);
 
-      SPIFFS.format();
-      settings.dabChannelSelected=0;
-      settings.dabChannelsCount=0;
-      dabChannels={};
-      delay(1000);
-      DrawScreen();
+        SPIFFS.format();
+        settings.dabChannelSelected=0;
+        settings.dabChannelsCount=0;
+        settings.showOnlyCachedLogos = false;
+        dabChannels={};
+        delay(1000);
+        DrawScreen();
+      }
     } 
     if (millis() - startOffPressed<500){
       isOn = false;
@@ -2307,11 +2226,17 @@ int32_t mySeek(PNGFILE *handle, int32_t position) {
 **            Web setup page 
 ***************************************************************************************/
 String processor(const String& var){
-  //Serial.println(var);
-  // if(var == "FORMPLACEHOLDER"){
-  //   return form_html;
-  // }
+  if (var=="wifiSSID") return settings.wifiSSID;
+  if (var=="wifiPass") return settings.wifiPass;
+  if (var=="DABName") return Dab.service[actualDabService].Label;  
+  if (var=="DABRDS") return actualInfo; 
   return String();
+}
+
+void SaveSettings(AsyncWebServerRequest *request){
+  if (request->hasParam("wifiSSID")) request->getParam("wifiSSID")->value().toCharArray(settings.wifiSSID,25);
+  if (request->hasParam("wifiPass")) request->getParam("wifiPass")->value().toCharArray(settings.wifiPass,25);  
+  settings.isDebug = request->hasParam("isDebug");
 }
 /***************************************************************************************
 **            Calibrate touch
