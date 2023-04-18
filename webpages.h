@@ -1,13 +1,11 @@
-
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML>
 <html>
   <head>
   <title>DAB Radio Server</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- <meta http-equiv="refresh" content="1">  -->
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" type="text/css" href="style.css">
+  <meta name=viewport content="width=device-width, initial-scale=1, user-scalable=yes, charset=utf-8">
+  <link rel="stylesheet" type="text/css" href="/style.css">
   </head>
   <body>
     <div class="topnav">
@@ -15,36 +13,61 @@ const char index_html[] PROGMEM = R"rawliteral(
     </div>
     <hr>
     <div class="divinfo">
-      <div class="divinfo">
-        <table class="fwidth">
-          <tr>
-            <td class="hwidth" style="text-align:center;font-size: medium; color: cyan">
-              <h1><span id="DABName">%DABName%</span></h1> 
-            </td>
-          </tr>
-          <tr>
-            <td class="hwidth" style="text-align:center;font-size: medium; color: green">
-              <h2><span id="DABRDS">%DABRDS%</span></h2> 
-            </td>
-          </tr>
-        </table>
-      </div>
-  </div>
-  <hr>
-
-  <div class="topnav" style="background-color: lightblue; ">
-    <table class="fwidth">
-        <tr>
-          <td class="hwidth" style="text-align:left">
-            <h4>Copyright (c) Robert de Kok, PA2RDK</h4>
-          </td>
-          <td style="text-align:right">
-            <a href="/settings"><button>Settings</button></a>
-            <a href="/reboot"><button>Reboot</button></a>
-          </td>
-        </tr>
+    <table>     
+      <tr>
+        <td style="text-align:center;font-size: medium; color: cyan;" colspan="2">
+          <h1><span id="DABName">%DABName%</span></h1>
+        </td>
+        <td rowspan="5" width=150px>
+           <span id="DABLogo">%DABLogo%</span>
+        </td>       
+      </tr>      
+      <tr>
+        <td style="text-align:center;font-size: medium; color: #ff4500;" colspan="2">
+          <h2><span id="DABRDS">%DABRDS%</span></h2> 
+        </td>
+      </tr>     
+      <tr>
+        <td style="text-align:right;">
+          <a href="/tunedown"><button class="button">Tune down</button></a> 
+        </td>
+        <td style="text-align:left;">
+          <a href="/tuneup"><button class="button">Tune up</button></a>
+        </td>
+      </tr>
+      <tr>
+        <td style="text-align:right;">
+          <a href="/channeldown"><button class="button">Channel down</button></a> 
+        </td>
+        <td style="text-align:left;">
+          <a href="/channelup"><button class="button">Channel up</button></a>
+        </td>
+      </tr>
+      <tr>
+        <td style="text-align:right;">
+          <a href="/volumedown"><button class="button">Volume down</button></a> 
+        </td>
+        <td style="text-align:left;">
+          <a href="/volumeup"><button class="button">Volume up</button></a>
+        </td>
+      </tr>
     </table>
-  </div>
+    </div>
+    <hr>
+
+    <div class="topnav" style="background-color: lightblue; ">
+      <table>
+          <tr>
+            <td style="text-align:left; color:black;">
+              <h4>PI4RAZ</h4>
+            </td>
+            <td style="text-align:right;">
+              <a href="/settings"><button class="button">Settings</button></a>
+              <a href="/reboot"><button class="button">Reboot</button></a>
+            </td>
+          </tr>
+      </table>
+    </div>
 
   <script>
   if (!!window.EventSource) {
@@ -57,6 +80,10 @@ const char index_html[] PROGMEM = R"rawliteral(
     source.addEventListener('DABRDS', function(e) {
       document.getElementById("DABRDS").innerHTML = e.data;
     }, false);
+
+    source.addEventListener('DABLogo', function(e) {
+      document.getElementById("DABLogo").innerHTML = e.data;
+    }, false);
   }
 
   if(typeof window.history.pushState == 'function') {
@@ -66,7 +93,6 @@ const char index_html[] PROGMEM = R"rawliteral(
     }
   }
   </script>
-
   </body>
   </html>
 )rawliteral";
@@ -76,10 +102,9 @@ const char settings_html[] PROGMEM = R"rawliteral(
 <html>
   <head>
   <title>DAB Radio Server</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- <meta http-equiv="refresh" content="1">  -->
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" type="text/css" href="style.css">
+  <meta name=viewport content="width=device-width, initial-scale=1, user-scalable=yes, charset=utf-8">
+  <link rel="stylesheet" type="text/css" href="/style.css">
   </head>
   <body>
     <div class="topnav">
@@ -92,37 +117,37 @@ const char settings_html[] PROGMEM = R"rawliteral(
       <form action="/store" method="get">
 
       <div class="divinfo">
-        <table class="fwidth">
+        <table>
           <tr>
-            <td class="hwidth" style="text-align:right;font-size: medium; color: white">
+            <td style="text-align:right;font-size: medium; color: white">
               WiFi SSID: 
             </td>
-            <td class="hwidth" style="text-align:left;font-size: medium;">
+            <td style="text-align:left;font-size: medium;">
               <input type="text" name="wifiSSID" value="%wifiSSID%">
             </td>
           </tr>
 
           <tr>
-            <td class="hwidth" style="text-align:right;font-size: medium; color: white">
+            <td style="text-align:right;font-size: medium; color: white">
               WiFi Password:
             </td>
-            <td class="hwidth" style="text-align:left;font-size: medium;">
+            <td style="text-align:left;font-size: medium;">
               <input type="password" name="wifiPass" value="%wifiPass%">
             </td>
           </tr>
 
           <tr>
-            <td class="hwidth" style="text-align:right;font-size: medium;">
+            <td style="text-align:right;font-size: medium;">
               Debugmode:
             </td>
-            <td class="hwidth" style="text-align:left;font-size: medium;">
+            <td style="text-align:left;font-size: medium;">
               <input type="checkbox" name="isDebug" value="isDebug" %isDebug%>
             </td>
           </tr>
 
           <tr>
             <td></td>
-            <td class="fwidth" style="text-align:left;font-size: medium;">
+            <td style="text-align:left;font-size: medium;">
               <input style="font-size: medium" type="submit" value="Submit">
             </td>
           </tr>
@@ -134,14 +159,14 @@ const char settings_html[] PROGMEM = R"rawliteral(
   <hr>
 
   <div class="topnav" style="background-color: lightblue; ">
-    <table class="fwidth">
+    <table>
         <tr>
-          <td class="hwidth" style="text-align:center">
-            <h4>Copyright (c) Robert de Kok, PA2RDK</h4>
+          <td style="text-align:left; color:black">
+            <h4>PI4RAZ</h4>
           </td>
           <td style="text-align:right">
-            <a href="/"><button>Main</button></a>
-            <a href="/reboot"><button>Reboot</button></a>
+            <a href="/"><button class="button">Main</button></a>
+            <a href="/reboot"><button class="button">Reboot</button></a>
           </td>
         </tr>
     </table>
@@ -160,38 +185,21 @@ const char settings_html[] PROGMEM = R"rawliteral(
   </html>
 )rawliteral";
 
-const char style_html[] PROGMEM = R"rawliteral(
-<style>
+const char css_html[] PROGMEM = R"rawliteral(
 html {
     font-family: Arial; 
     display: inline-block; 
     text-align: center;
-    background-color: black; 
+    background-color: gray; 
 }
 p { 
     font-size: 1.2rem;
 }
 body {  
-    margin: 0;
-    background-color: black; 
+    max-width:900px;
+    margin: 0 auto;
+    background-color: gray;
 }
-.hwidth {
-    width: 50%;
-}
-
-.fwidth {
-    width: 100%;
-}
-
-.freqdisp {
-    border: none;
-    background-color: black;
-    color: yellow;
-    font-size: xx-large;
-    border-bottom: 1px solid gray;
-    text-align: center;
-}
-
 .topnav { 
     overflow: hidden; 
     background-color: blue; 
@@ -199,39 +207,25 @@ body {
     font-size: 1rem; 
     line-height: 0%;
     text-align: center;
+    word-wrap: break-word;
 }
 .divinfo { 	
     overflow: hidden; 
-    background-color: black; 
+    background-color: gray; 
     color: white; 
     font-size: 0.7rem; 
     height:100;
     line-height: 0%;
 }
-.freqinfo { 	
-    overflow: hidden; 
-    background-color: black;
-    color: yellow; 
-    font-size: 1rem; 
-    line-height: 0%;
-}
 .content { 
     padding: 20px; 
 }
-.card { 
-    background-color: lightblue; 
-    box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5); 
-    font-size: 0.7rem; 
+.button {
+    height:25px;
+    width:110px;
+    background-color: yellow;
 }
-.cards { 
-    max-width: 1000px; 
-    margin: 0 auto; 
-    display: grid; 
-    grid-gap: 1rem; 
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); 
+table {
+  width: 100%;
 }
-.reading { 
-    font-size: 1.4rem;  
-}
-</style>
-)rawliteral";
+})rawliteral";

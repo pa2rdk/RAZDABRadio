@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.00 Includes full webinterface
 // V0.95 Start of webinterface
 // V0.94 Drastic interface changes
 // V0.93 Info button acts as loop through all channels.
@@ -243,6 +244,7 @@ int actualPage = 1;
 int lastPage = 2;
 int32_t keyboardNumber = 0;
 char buf[300] = "\0";
+char logoBuf[100] = "\0";
 long lastTime = millis();
 long saveTime = millis();
 long startTime = millis();
@@ -259,6 +261,7 @@ int infoPos = 0;
 int infoLen = 24;
 long infoTime = millis();
 int services[20] = {};
+String webCommand = "None";
 DABChannel* dabChannels = 0;
 
 bool actualIsDab = false;
@@ -365,12 +368,12 @@ void setup() {
     WiFi.softAP("RAZDABRadio", NULL);
   } 
 
+  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/css", css_html);
+  });
+
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/html", index_html, processor);
-  });
-  
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, "/style.css", style_html);
   });
 
   server.on("/settings", HTTP_GET, [] (AsyncWebServerRequest *request) {
@@ -380,6 +383,42 @@ void setup() {
   server.on("/store", HTTP_GET, [] (AsyncWebServerRequest *request) {
     SaveSettings(request);
     SaveConfig();
+    request->send_P(200, "text/html", index_html, processor);
+  }); 
+
+   server.on("/dablogo", HTTP_GET, [](AsyncWebServerRequest *request){
+     //"/43b4.png"
+     if (request->hasParam("plaatje")) request->getParam("plaatje")->value();
+    request->send(SPIFFS, request->getParam("plaatje")->value(), "image/png");
+  });
+
+  server.on("/tunedown", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="TuneDown";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/tuneup", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="TuneUp";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/volumedown", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="VolumeDown";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/volumeup", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="VolumeUp";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/channeldown", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="ChannelDown";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/channelup", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="ChannelUp";
     request->send_P(200, "text/html", index_html, processor);
   });
 
@@ -443,7 +482,8 @@ bool Connect2WiFi(){
 }
 
 void loop() {
-  //server.handleClient();
+  HandleWebCommand();
+
   if (millis()-lastTime>1000 && actualPage<lastPage){
     DrawTime();
     DrawStatus();
@@ -577,6 +617,7 @@ void DrawFrequency(){
         tft.fillRect(180, 30, 10, 30, TFT_BLACK);
       }
       events.send(Dab.service[actualDabService].Label,"DABName",millis());
+      events.send(GetLogoName(settings.dabServiceID),"DABLogo",millis());
     }
     if (!settings.isDab){
         tft.setTextColor(TFT_GOLD, TFT_BLACK);
@@ -766,6 +807,7 @@ Button FindButtonInfo(Button button){
   }
 
   if (button.name=="Light") {
+    Serial.println(GetLogoName(settings.dabServiceID));
     sprintf(buttonBuf,"%d",settings.currentBrightness);
     strcpy(button.waarde,buttonBuf);
   }
@@ -858,8 +900,20 @@ void DrawMeter(int xPos, int yPos, int width, int height, int value, int minValu
 /***************************************************************************************
 **            Handle button
 ***************************************************************************************/
-void HandleButton(String buttonName){
-  HandleButton(buttonName, true);
+
+void HandleWebCommand(){
+  if (webCommand=="TuneUp") HandleWebButton("ToRight","Tune");
+  if (webCommand=="TuneDown") HandleWebButton("ToLeft","Tune");
+  if (webCommand=="VolumeUp") HandleWebButton("ToRight","Vol");
+  if (webCommand=="VolumeDown") HandleWebButton("ToLeft","Vol");
+  if (webCommand=="ChannelUp") HandleWebButton("ToRight","LoadList");
+  if (webCommand=="ChannelDown") HandleWebButton("ToLeft","LoadList");
+  webCommand = "None";
+}
+
+void HandleWebButton(String buttonName, String activeButtonName){
+  settings.activeBtn=FindButtonIDByName(activeButtonName);
+  HandleButton(buttonName, true); 
 }
 
 void HandleButton(String buttonName, bool doDraw){
@@ -883,7 +937,7 @@ void HandleButton(Button button, int x, int y){
 void HandleButton(Button button, int x, int y, bool doDraw){
   if (button.name=="ToRight"){
     if (settings.activeBtn==FindButtonIDByName("Tune")){
-      DrawPatience();
+      if (doDraw) DrawPatience();
       if (settings.isDab){ 
         if (actualDabService<Dab.numberofservices - 1){
           actualDabService++;
@@ -917,7 +971,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
         Dab.seek(1,1);
         settings.fmFreq = Dab.freq*10;
         if (settings.isDebug) Serial.println(settings.fmFreq);
-        DrawFrequency();
+        if (doDraw) DrawFrequency();
       }
       if (doDraw) DrawButtons();
     }
@@ -950,10 +1004,10 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     }
     if (doDraw) DrawButton("Navigate");
   }
-
+ 
   if (button.name=="ToLeft"){
     if (settings.activeBtn==FindButtonIDByName("Tune")){
-      DrawPatience();
+      if (doDraw) DrawPatience();
       if (settings.isDab){
         if (actualDabService>0){
           actualDabService--;
@@ -985,7 +1039,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (!settings.isDab){
         Dab.seek(0,1);
         settings.fmFreq = Dab.freq*10;
-        DrawFrequency();
+        if (doDraw) DrawFrequency();
       }
       if (doDraw) DrawButtons();
     }
@@ -2139,6 +2193,20 @@ bool FindOurService(const char *text, const char *bearer) {
   return false;
 }
 
+char * GetLogoName(uint32_t id) {
+  char pngfilename[16];
+  char jpgfilename[16];
+  sprintf(pngfilename, "/%04x.png", id);
+  sprintf(jpgfilename, "/%04x.jpg", id);
+  //<img width="128" height="128" src="/dablogo?plaatje=%DABLogo%">
+  String s;
+  if (SPIFFS.exists(pngfilename)) sprintf(logoBuf, "<img width=\"128\" height=\"128\" src=\"/dablogo?plaatje=%s\">", pngfilename);
+  else if (SPIFFS.exists(jpgfilename)) sprintf(logoBuf, "<img width=\"128\" height=\"128\" src=\"/dablogo?plaatje=%s\">", jpgfilename);
+  else strcpy(logoBuf,"<h4>Dablogo<br>not<br>available</h4>");
+  Serial.println(logoBuf);
+  return logoBuf;
+}
+
 void DrawLogo(uint32_t id) {
   char pngfilename[16];
   char jpgfilename[16];
@@ -2147,7 +2215,6 @@ void DrawLogo(uint32_t id) {
   sprintf(jpgfilename, "/%04x.jpg", id);
   //UpdateLogo = 0;
   if (SPIFFS.exists(pngfilename)) {
-
     int rc = png.open((const char *)pngfilename, myOpen, myClose, myRead, mySeek, PNGDraw);
     if (rc == PNG_SUCCESS) {
       if (settings.isDebug) Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
@@ -2230,7 +2297,10 @@ String processor(const String& var){
   if (var=="wifiPass") return settings.wifiPass;
   if (var=="DABName") return Dab.service[actualDabService].Label;  
   if (var=="DABRDS") return actualInfo; 
-  return String();
+  if (var=="style") return css_html;
+  if (var=="DABLogo") return GetLogoName(settings.dabServiceID);
+  if (var=="isDebug") return settings.isDebug?"checked":"";
+  return var;
 }
 
 void SaveSettings(AsyncWebServerRequest *request){
