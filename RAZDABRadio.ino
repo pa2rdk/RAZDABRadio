@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.01 Includes even more webinterface
 // V1.00 Includes full webinterface
 // V0.95 Start of webinterface
 // V0.94 Drastic interface changes
@@ -402,6 +403,16 @@ void setup() {
     request->send_P(200, "text/html", index_html, processor);
   });
 
+  server.on("/memdown", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="MemDown";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/memup", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="MemUp";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
   server.on("/volumedown", HTTP_GET, [] (AsyncWebServerRequest *request) {
     webCommand="VolumeDown";
     request->send_P(200, "text/html", index_html, processor);
@@ -419,6 +430,22 @@ void setup() {
 
   server.on("/channelup", HTTP_GET, [] (AsyncWebServerRequest *request) {
     webCommand="ChannelUp";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/gochannel", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    if (request->hasParam("channel")) keyboardNumber = request->getParam("channel")->value().toInt();
+    webCommand="GoChannel";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/mute", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="Mute";
+    request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server.on("/mode", HTTP_GET, [] (AsyncWebServerRequest *request) {
+    webCommand="Mode";
     request->send_P(200, "text/html", index_html, processor);
   });
 
@@ -570,6 +597,7 @@ void DrawTime(){
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
     tft.setTextPadding(tft.textWidth(buf));  // String width + margin
     tft.drawString(buf, 2, 4, 1);
+    events.send(buf,"DABTime",millis());
   }
 }
 
@@ -583,6 +611,7 @@ void DrawServiceData(){
       tft.setTextColor(TFT_YELLOW, TFT_BLACK);
       tft.setTextPadding(tft.textWidth(actualInfo));  // String width + margin
       tft.drawString(actualInfo, 2, 4, 1);
+      events.send(actualInfo,"DABTime",millis());
       sprintf(actualInfo, "%s - %s ", Dab.ps, Dab.ServiceData);
     }
     if (strcmp(lastInfo,actualInfo)!=0){
@@ -604,6 +633,7 @@ void DrawFrequency(){
       tft.setTextColor(TFT_WHITE, TFT_BLACK);
       tft.setTextDatum(ML_DATUM);
       sprintf(buf, "%03d.%03d MHz", (uint16_t)(Dab.freq_khz(Dab.freq_index) / 1000),(uint16_t)(Dab.freq_khz(Dab.freq_index) % 1000));
+      events.send(buf,"DABFreq",millis());
       tft.setTextPadding(tft.textWidth(buf));
       tft.drawString(buf, 2,14,1);
       tft.setTextColor(TFT_CYAN, TFT_BLACK);
@@ -627,6 +657,10 @@ void DrawFrequency(){
         tft.drawString(buf, 260,48,7);
         tft.setTextPadding(tft.textWidth("MHz"));
         tft.drawString("MHz", 315,50,4);
+        strcat(buf,"MHz");
+        events.send(buf,"DABName",millis());
+        events.send("","DABLogo",millis());
+        events.send("","DABFreq",millis());
     }
     DrawStatus();
     if (settings.isDab && settings.isDebug) Serial.printf("\r\nDabzaken ECC:%d, PI:%d, Ensemble:%s, RomID:%d, PartNo:%d,  VerMajor:%d, PS:%s, DabServiceID:%d, NumberOfServices:%d, EnsembleID:%d\r\n\r\n",Dab.ECC, Dab.pi, Dab.Ensemble,Dab.RomID,Dab.PartNo,Dab.VerMajor,Dab.ps, settings.dabServiceID, Dab.numberofservices,Dab.EnsembleID);
@@ -647,6 +681,10 @@ void DrawPatience(bool onBottom, String message){
     else
       tft.fillRect(0,0,320, 98,TFT_BLACK);   
     tft.drawString(message, 0, 30,4);    
+    message.toCharArray(buf, message.length()+1);
+    events.send(buf,"DABName",millis());
+    events.send("","DABRDS",millis());
+    events.send("","DABLogo",millis());
   } else {
     tft.fillRect(0,136,320,240,TFT_BLACK);    
     tft.drawString(message, 0,160,4);    
@@ -766,18 +804,22 @@ Button FindButtonInfo(Button button){
     if (settings.isMuted==2) strcpy(button.waarde,"Left");
     if (settings.isMuted==3) strcpy(button.waarde,"Muted");
     button.btnColor = settings.isMuted?TFT_RED:TFT_BLUE;
+    sprintf(buf,"%s",WebMuteStatus());
+    events.send(buf,"myMute",millis());
   }
 
   if (button.name=="Mode") {  
     sprintf(buttonBuf,"%s",settings.isDab?"DAB":"FM");
     strcpy(button.waarde,buttonBuf);
     button.btnColor = settings.isDab?TFT_RED:TFT_GREEN;
+    sprintf(buf,"%s",settings.isDab?"DAB":"FM");
+    events.send(buf,"myMode",millis());
   }
 
   if (button.name=="Tune") {
     if (settings.isDab){
       //sprintf(buttonBuf,"%d",settings.dabChannel);
-      sprintf(buttonBuf,"%d (%d/%d)",settings.dabChannel,actualDabService+1,Dab.numberofservices);
+      sprintf(buttonBuf,"%d (%d/%d)",settings.dabChannel,actualDabService,Dab.numberofservices-1);
       strcpy(button.waarde,buttonBuf);
     }
   }
@@ -794,10 +836,12 @@ Button FindButtonInfo(Button button){
   if (button.name=="LoadList") {
     sprintf(buttonBuf,"        ");
     if (settings.activeBtn==FindButtonIDByName("LoadList") && settings.dabChannelsCount>0) 
-      sprintf(buttonBuf,"%d/%d",settings.dabChannelSelected+1,settings.dabChannelsCount);
+      sprintf(buttonBuf,"%d/%d",settings.dabChannelSelected,settings.dabChannelsCount-1);
     else 
-      sprintf(buttonBuf,"%d",settings.dabChannelsCount);
+      sprintf(buttonBuf,"%d",settings.dabChannelsCount-1);
     strcpy(button.waarde,buttonBuf);
+    sprintf(buf,"%d",settings.dabChannelSelected);
+    events.send(buf,"selectedStation",millis());
   }
 
   if (button.name=="Stereo") {  
@@ -904,10 +948,18 @@ void DrawMeter(int xPos, int yPos, int width, int height, int value, int minValu
 void HandleWebCommand(){
   if (webCommand=="TuneUp") HandleWebButton("ToRight","Tune");
   if (webCommand=="TuneDown") HandleWebButton("ToLeft","Tune");
+  if (webCommand=="MemUp") HandleWebButton("ToRight","MEM");
+  if (webCommand=="MemDown") HandleWebButton("ToLeft","MEM");
   if (webCommand=="VolumeUp") HandleWebButton("ToRight","Vol");
   if (webCommand=="VolumeDown") HandleWebButton("ToLeft","Vol");
   if (webCommand=="ChannelUp") HandleWebButton("ToRight","LoadList");
   if (webCommand=="ChannelDown") HandleWebButton("ToLeft","LoadList");
+  if (webCommand=="GoChannel"){
+    Serial.printf("Keyboard is %d\r\n", keyboardNumber);
+    HandleWebButton("Enter", "LoadList");
+  } 
+  if (webCommand=="Mute") HandleWebButton("Mute","LoadList");
+  if (webCommand=="Mode") HandleWebButton("Mode","LoadList");
   webCommand = "None";
 }
 
@@ -990,7 +1042,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       }
     }
     else if (settings.activeBtn==FindButtonIDByName("LoadList")){
-      if (settings.dabChannelSelected<settings.dabChannelsCount-1){
+      if (settings.dabChannelSelected<settings.dabChannelsCount-2){
         settings.dabChannelSelected++;
         SetRadioFromList(settings.dabChannelSelected);
         if (doDraw) DrawButtons();
@@ -1129,11 +1181,10 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       qsort(dabChannels, settings.dabChannelsCount, sizeof(DABChannel), SortOnDabChannel);
       DrawPatience(true,"Ophalen logo's");
       for (int i=0;i<settings.dabChannelsCount-1;i++){
-        sprintf(buf,"Ophalen logo's (%d/%d)",i+1,settings.dabChannelsCount);
+        sprintf(buf,"Ophalen logo's (%d/%d)",i,settings.dabChannelsCount-1);
         DrawPatience(true, buf);
-        settings.dabChannelSelected++;
+        settings.dabChannelSelected=i;
         SetRadioFromList(settings.dabChannelSelected);
-        //if (doDraw) DrawFrequency();
         delay(1000);
       }
       qsort(dabChannels, settings.dabChannelsCount, sizeof(DABChannel), SortOnDabName);
@@ -1231,7 +1282,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       actualPage=1;
       if (doDraw) DrawScreen();
     } else {
-        if (settings.activeBtn==FindButtonIDByName("LoadList")){
+      if (settings.activeBtn==FindButtonIDByName("LoadList")){
         keyboardNumber = settings.dabChannelSelected;
         actualPage = BTN_NUMERIC;
         if (doDraw) DrawScreen();
@@ -1294,17 +1345,10 @@ void HandleButton(Button button, int x, int y, bool doDraw){
   if (String(button.name).substring(0,3) =="A00") {
     bool reachedNull = false;
     if (String(button.name).substring(3)=="M"){
-      if (settings.activeBtn==FindButtonIDByName("LoadList")){
-        if (keyboardNumber>1)
-          keyboardNumber--;
-        else
-          reachedNull = true;
-      } else {
-        if (keyboardNumber>0)
-          keyboardNumber--;
-        else
-          reachedNull = true;
-      }
+      if (keyboardNumber>0)
+        keyboardNumber--;
+      else
+        reachedNull = true;
     }
     else if (String(button.name).substring(3)=="P") {
       keyboardNumber++;
@@ -1317,7 +1361,7 @@ void HandleButton(Button button, int x, int y, bool doDraw){
     if (settings.activeBtn==FindButtonIDByName("Tune")){
       if (settings.isDab && keyboardNumber>=DAB_FREQS) keyboardNumber=0;
       if (settings.isDab && reachedNull) keyboardNumber=DAB_FREQS-1;
-      if (!settings.isDab && keyboardNumber>107900) keyboardNumber=0;
+      if (!settings.isDab && keyboardNumber>107900) keyboardNumber=88500;
     } 
     if (settings.activeBtn==FindButtonIDByName("Vol")){
       if (keyboardNumber>63) keyboardNumber=0;
@@ -1334,8 +1378,8 @@ void HandleButton(Button button, int x, int y, bool doDraw){
       if (keyboardNumber>9) keyboardNumber=0;
     }
     if (settings.activeBtn==FindButtonIDByName("LoadList")){
-      if (keyboardNumber>settings.dabChannelsCount) keyboardNumber=1;
-      if (reachedNull) keyboardNumber=settings.dabChannelsCount;
+      if (keyboardNumber>settings.dabChannelsCount-1) keyboardNumber=0;
+      if (reachedNull) keyboardNumber=settings.dabChannelsCount-1;
     }
     if (doDraw) DrawKeyboardNumber(false);
   }
@@ -1425,8 +1469,8 @@ void SetRadioFromList(int channel){
   DrawPatience();
   settings.isDab = true;
   settings.isStereo = true;
-  settings.dabChannel = dabChannels[channel-1].dabChannel;
-  settings.dabServiceID = dabChannels[channel-1].dabServiceID;
+  settings.dabChannel = dabChannels[channel].dabChannel;
+  settings.dabServiceID = dabChannels[channel].dabServiceID;
   SetRadio(false, false);
   if (settings.isDab) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
   if (settings.isDebug) Serial.printf("Set from List: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n",settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
@@ -1519,7 +1563,7 @@ void LoadList(){
     } 
     settings.dabChannelSelected=0;
     SaveStationList();
-    SetRadioFromList(1);
+    SetRadioFromList(0);
   } 
 }
 
@@ -2300,7 +2344,29 @@ String processor(const String& var){
   if (var=="style") return css_html;
   if (var=="DABLogo") return GetLogoName(settings.dabServiceID);
   if (var=="isDebug") return settings.isDebug?"checked":"";
+  if (var=="stationList") return WebStationList();
+  if (var=="myMute") return WebMuteStatus();
+  if (var=="myMode") return settings.isDab?"DAB":"FM";
+
   return var;
+}
+
+String WebStationList(){
+  String s = "<select name=\"stationsList\" id=\"stationsList\" onchange=\"changeActualChannel()\">";
+  for (int i = 0;i<settings.dabChannelsCount;i++){
+    sprintf(buf,"<option value=\"%d\"%s>%02d: %s</option>", i,(settings.dabChannelSelected==i)?" selected ":"",i, dabChannels[i].dabName);
+    s += String(buf);
+  }
+  s += "</select>";
+  return s;
+}
+
+String WebMuteStatus(){
+    String retVal =  "";
+    if (settings.isMuted==1) retVal = "Right";
+    if (settings.isMuted==2) retVal = "Left";
+    if (settings.isMuted==3) retVal = "Muted";
+    return retVal;
 }
 
 void SaveSettings(AsyncWebServerRequest *request){

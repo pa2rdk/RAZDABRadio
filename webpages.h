@@ -15,15 +15,17 @@ const char index_html[] PROGMEM = R"rawliteral(
     <div class="divinfo">
     <table>     
       <tr>
-        <td style="text-align:center;font-size: medium; color: cyan;" colspan="2">
+        <td style="text-align:left;font-size: small; color: yellow;" colspan="3">
+          <h4><span id="DABTime">%DABTime%</span> - <span id="DABFreq">%DABFreq%</span></h4>
+        </td>      
+      </tr> 
+      <tr>
+        <td style="text-align:center;font-size: medium; color: cyan;" colspan="3">
           <h1><span id="DABName">%DABName%</span></h1>
-        </td>
-        <td rowspan="5" width=150px>
-           <span id="DABLogo">%DABLogo%</span>
-        </td>       
+        </td>      
       </tr>      
       <tr>
-        <td style="text-align:center;font-size: medium; color: #ff4500;" colspan="2">
+        <td style="text-align:center;font-size: medium; color: #ff4500;" colspan="3">
           <h2><span id="DABRDS">%DABRDS%</span></h2> 
         </td>
       </tr>     
@@ -33,6 +35,17 @@ const char index_html[] PROGMEM = R"rawliteral(
         </td>
         <td style="text-align:left;">
           <a href="/tuneup"><button class="button">Tune up</button></a>
+        </td>
+        <td rowspan="4" width=150px>
+           <span id="DABLogo">%DABLogo%</span>
+        </td> 
+      </tr>
+      <tr>
+        <td style="text-align:right;">
+          <a href="/memdown"><button class="button">Memory down</button></a> 
+        </td>
+        <td style="text-align:left;">
+          <a href="/memup"><button class="button">Memory up</button></a>
         </td>
       </tr>
       <tr>
@@ -44,11 +57,24 @@ const char index_html[] PROGMEM = R"rawliteral(
         </td>
       </tr>
       <tr>
+        <td style="text-align:center;" colspan="2">
+          <span id="stationList">%stationList%</span>
+        </td>
+      </tr>
+      <tr>
         <td style="text-align:right;">
           <a href="/volumedown"><button class="button">Volume down</button></a> 
         </td>
         <td style="text-align:left;">
           <a href="/volumeup"><button class="button">Volume up</button></a>
+        </td>
+      </tr>
+      <tr>
+        <td style="text-align:right;">
+          <a href="/mute"><button class="button"><span id="myMute">Mute %myMute%</span></button></a> 
+        </td>
+        <td style="text-align:left;">
+          <a href="/mode"><button class="button"><span id="myMode">Mode %myMode%</span></button></a>
         </td>
       </tr>
     </table>
@@ -70,6 +96,13 @@ const char index_html[] PROGMEM = R"rawliteral(
     </div>
 
   <script>
+  // alert("Oliebol");
+
+    function changeActualChannel(){
+      var e = document.getElementById("stationsList");
+      window.location.href = "/gochannel?channel="+e.value.toString();
+    }
+
   if (!!window.EventSource) {
       var source = new EventSource('/events');
     
@@ -83,6 +116,27 @@ const char index_html[] PROGMEM = R"rawliteral(
 
     source.addEventListener('DABLogo', function(e) {
       document.getElementById("DABLogo").innerHTML = e.data;
+    }, false);
+
+    source.addEventListener('DABTime', function(e) {
+      document.getElementById("DABTime").innerHTML = e.data;
+    }, false);
+
+    source.addEventListener('DABFreq', function(e) {
+      document.getElementById("DABFreq").innerHTML = e.data;
+    }, false);
+
+    source.addEventListener('selectedStation', function(e) {
+      let element = document.getElementById("stationsList");
+      element.value = e.data;
+    }, false);
+
+    source.addEventListener('myMute', function(e) {
+      document.getElementById("myMute").innerHTML = "Mute " + e.data;
+    }, false);
+
+    source.addEventListener('myMode', function(e) {
+      document.getElementById("myMode").innerHTML = "Mode " + e.data;
     }, false);
   }
 
@@ -209,7 +263,7 @@ body {
     text-align: center;
     word-wrap: break-word;
 }
-.divinfo { 	
+.divinfo {  
     overflow: hidden; 
     background-color: gray; 
     color: white; 
@@ -221,11 +275,23 @@ body {
     padding: 20px; 
 }
 .button {
-    height:25px;
+    height:30px;
     width:110px;
-    background-color: yellow;
+    background-color: white;
+    border-radius: 6px;
+    border: 1px solid black;
+}
+select {
+    height:30px;
+    width:226px;
+    background-color: white;
+    padding: 0px;
 }
 table {
   width: 100%;
 }
+// table, td, tr {
+//   border: 1px solid;
+// }
 })rawliteral";
+
