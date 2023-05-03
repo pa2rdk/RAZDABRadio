@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.02 Bug with HTML characters solved
 // V1.01 Includes even more webinterface
 // V1.00 Includes full webinterface
 // V0.95 Start of webinterface
@@ -2339,8 +2340,16 @@ int32_t mySeek(PNGFILE *handle, int32_t position) {
 String processor(const String& var){
   if (var=="wifiSSID") return settings.wifiSSID;
   if (var=="wifiPass") return settings.wifiPass;
-  if (var=="DABName") return Dab.service[actualDabService].Label;  
-  if (var=="DABRDS") return actualInfo; 
+  if (var=="DABName"){
+    String s = String(Dab.service[actualDabService].Label);
+    s.replace("%","&#37");
+    return s;
+  }   
+  if (var=="DABRDS"){
+    String s = String(actualInfo);
+    s.replace("%","&#37");
+    return s;
+  }
   if (var=="style") return css_html;
   if (var=="DABLogo") return GetLogoName(settings.dabServiceID);
   if (var=="isDebug") return settings.isDebug?"checked":"";
@@ -2358,6 +2367,7 @@ String WebStationList(){
     s += String(buf);
   }
   s += "</select>";
+  s.replace("%","&#37"); //
   return s;
 }
 
@@ -2374,6 +2384,7 @@ void SaveSettings(AsyncWebServerRequest *request){
   if (request->hasParam("wifiPass")) request->getParam("wifiPass")->value().toCharArray(settings.wifiPass,25);  
   settings.isDebug = request->hasParam("isDebug");
 }
+
 /***************************************************************************************
 **            Calibrate touch
 ***************************************************************************************/
