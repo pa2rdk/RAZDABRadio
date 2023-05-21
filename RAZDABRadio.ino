@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.04 Better highlighted button
 // V1.03 Gradient buttons
 // V1.02 Bug with HTML characters solved
 // V1.01 Includes even more webinterface
@@ -714,7 +715,7 @@ void DrawButtons(){
     if ((buttons[i].pageNo&showVal)>0){
       Button button = FindButtonInfo(buttons[i]);
       button.bckColor = TFT_BUTTONCOLOR;
-      if (String(button.name) == FindButtonNameByID(settings.activeBtn)) button.bckColor = TFT_GREEN;
+      //if (String(button.name) == FindButtonNameByID(settings.activeBtn)) button.bckColor = TFT_GREEN;
       DrawButton(button.xPos,button.yPos,button.width,button.height,button.caption,button.waarde,button.btnColor,button.bckColor,button.name);
     }
   }
@@ -730,7 +731,7 @@ void DrawButton(String btnName, uint16_t btnColor){
     if (String(buttons[i].name)==btnName && ((buttons[i].pageNo&showVal)>0)){
       Button button = FindButtonInfo(buttons[i]);
       if (btnColor==0) btnColor = button.btnColor; 
-      if (String(button.name) == FindButtonNameByID(settings.activeBtn)) button.bckColor = TFT_GREEN;
+      //if (String(button.name) == FindButtonNameByID(settings.activeBtn)) button.bckColor = TFT_GREEN;
       DrawButton(button.xPos,button.yPos,button.width,button.height,button.caption,button.waarde,btnColor,button.bckColor,button.name);
     }
   }
@@ -740,9 +741,13 @@ void DrawButton(int xPos, int yPos, int width, int height, String caption, Strin
   tft.setTextDatum(MC_DATUM);
   DrawBox(xPos, yPos, width, height);
 
-  tft.fillRectVGradient(xPos + 2,yPos + 2, width-4, (height/2)+1, TFT_BLACK, bckColor);
+  uint16_t gradientStartColor = TFT_BLACK;
+  if (Name == FindButtonNameByID(settings.activeBtn)) gradientStartColor = bckColor;
+
+  tft.fillRectVGradient(xPos + 2,yPos + 2, width-4, (height/2)+1, gradientStartColor, bckColor);
   tft.setTextPadding(tft.textWidth(caption));
   tft.setTextColor(TFT_WHITE);
+  if (gradientStartColor == bckColor) tft.setTextColor(TFT_BLACK);
   tft.drawString(caption, xPos + (width/2), yPos + (height/2)-5, 2);
 
   if (Name=="Navigate"){
