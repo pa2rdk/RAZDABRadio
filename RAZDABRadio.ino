@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.05 Code review
 // V1.04 Better highlighted button
 // V1.03 Gradient buttons
 // V1.02 Bug with HTML characters solved
@@ -120,7 +121,7 @@ const char *const audiomode[] = { mode_0, mode_1, mode_2, mode_3 };
 #define TFT_LIGTHYELLOW 0xFF10
 #define TFT_DARKBLUE 0x016F
 #define TFT_SHADOW 0xE71C
-#define TFT_BUTTONCOLOR 0xB5FE
+#define TFT_BUTTONTOPCOLOR 0xB5FE
 
 #define DAB_BAND 0
 #define DAB_INTERRUPT 26
@@ -146,8 +147,8 @@ typedef struct {        // Buttons
   uint16_t yPos;
   uint16_t width;
   uint16_t height;
-  uint16_t btnColor;
-  uint16_t bckColor;
+  uint16_t bottomColor;
+  uint16_t topColor;
 } Button;
 
 typedef struct {
@@ -191,41 +192,41 @@ typedef struct {
 } Settings;
 
 const Button buttons[] = {
-  { "ToLeft", "<<", "", BTN_ARROW, 2, 208, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "ToRight", ">>", "", BTN_ARROW, 242, 208, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
+  { "ToLeft", "<<", "", BTN_ARROW, 2, 208, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "ToRight", ">>", "", BTN_ARROW, 242, 208, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
 
-  { "Vol", "Vol", "", 1, 2, 136, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
+  { "Vol", "Vol", "", 1, 2, 136, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
   { "Tune", "Tune", "", 1, 82, 136, 74, 30, TFT_BLACK, TFT_WHITE },
-  { "LoadList", "Channels", "", 1, 162, 136, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "MEM", "MEM", "", 1, 242, 136, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
+  { "LoadList", "Channels", "", 1, 162, 136, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "MEM", "MEM", "", 1, 242, 136, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
 
-  { "Mute", "Mute", "", 1, 2, 172, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "Mode", "Mode", "", 1, 82, 172, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "Info", "Info", "", 1, 162, 172, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "Save", "Save", "", 1, 242, 172, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
+  { "Mute", "Mute", "", 1, 2, 172, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "Mode", "Mode", "", 1, 82, 172, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "Info", "Info", "", 1, 162, 172, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "Save", "Save", "", 1, 242, 172, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
 
-  { "Light", "Light", "", 1, 82, 208, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "Off", "Off", "", 1, 162, 208, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
+  { "Light", "Light", "", 1, 82, 208, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "Off", "Off", "", 1, 162, 208, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
 
-  //{"Service","Select","",    1, 82,136, 74,30, TFT_BLACK, TFT_BUTTONCOLOR},
-  //{"Stereo","Stereo","",      1,242,172, 74,30, TFT_BLACK, TFT_BUTTONCOLOR},
+  //{"Service","Select","",    1, 82,136, 74,30, TFT_BLACK, TFT_BUTTONTOPCOLOR},
+  //{"Stereo","Stereo","",      1,242,172, 74,30, TFT_BLACK, TFT_BUTTONTOPCOLOR},
 
-  { "A001", "1", "", BTN_NUMERIC, 42, 100, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A002", "2", "", BTN_NUMERIC, 122, 100, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A003", "3", "", BTN_NUMERIC, 202, 100, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A004", "4", "", BTN_NUMERIC, 42, 136, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A005", "5", "", BTN_NUMERIC, 122, 136, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A006", "6", "", BTN_NUMERIC, 202, 136, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A007", "7", "", BTN_NUMERIC, 42, 172, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A008", "8", "", BTN_NUMERIC, 124, 172, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A009", "9", "", BTN_NUMERIC, 202, 172, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "Clear", "Clear", "", BTN_NUMERIC, 42, 208, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A000", "0", "", BTN_NUMERIC, 122, 208, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "Enter", "Enter", "", BTN_NUMERIC, 202, 208, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A00M", "-", "", BTN_NUMERIC, 2, 100, 35, 137, TFT_BLACK, TFT_BUTTONCOLOR },
-  { "A00P", "+", "", BTN_NUMERIC, 282, 100, 35, 137, TFT_BLACK, TFT_BUTTONCOLOR },
+  { "A001", "1", "", BTN_NUMERIC, 42, 100, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A002", "2", "", BTN_NUMERIC, 122, 100, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A003", "3", "", BTN_NUMERIC, 202, 100, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A004", "4", "", BTN_NUMERIC, 42, 136, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A005", "5", "", BTN_NUMERIC, 122, 136, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A006", "6", "", BTN_NUMERIC, 202, 136, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A007", "7", "", BTN_NUMERIC, 42, 172, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A008", "8", "", BTN_NUMERIC, 124, 172, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A009", "9", "", BTN_NUMERIC, 202, 172, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "Clear", "Clear", "", BTN_NUMERIC, 42, 208, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A000", "0", "", BTN_NUMERIC, 122, 208, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "Enter", "Enter", "", BTN_NUMERIC, 202, 208, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A00M", "-", "", BTN_NUMERIC, 2, 100, 35, 137, TFT_BLACK, TFT_BUTTONTOPCOLOR },
+  { "A00P", "+", "", BTN_NUMERIC, 282, 100, 35, 137, TFT_BLACK, TFT_BUTTONTOPCOLOR },
 
-  { "Close", "Close", "", BTN_CLOSE, 122, 208, 74, 30, TFT_BLACK, TFT_BUTTONCOLOR },
+  { "Close", "Close", "", BTN_CLOSE, 122, 208, 74, 30, TFT_BLACK, TFT_BUTTONTOPCOLOR },
 };
 
 const int ledFreq = 5000;
@@ -712,42 +713,29 @@ void DrawStatus() {
 void DrawButtons() {
   for (int i = 0; i < sizeof(buttons) / sizeof(buttons[0]); i++) {
     int showVal = ShowControls();
-    if ((buttons[i].pageNo & showVal) > 0) {
-      Button button = FindButtonInfo(buttons[i]);
-      button.bckColor = TFT_BUTTONCOLOR;
-      //if (String(button.name) == FindButtonNameByID(settings.activeBtn)) button.bckColor = TFT_GREEN;
-      DrawButton(button.xPos, button.yPos, button.width, button.height, button.caption, button.waarde, button.btnColor, button.bckColor, button.name);
-    }
+    if ((buttons[i].pageNo & showVal) > 0) DrawButton(buttons[i].name);
   }
 }
 
 void DrawButton(String btnName) {
-  DrawButton(btnName, 0);
-}
-
-void DrawButton(String btnName, uint16_t btnColor) {
   int showVal = ShowControls();
-  for (int i = 0; i < sizeof(buttons) / sizeof(buttons[0]); i++) {
-    if (String(buttons[i].name) == btnName && ((buttons[i].pageNo & showVal) > 0)) {
-      Button button = FindButtonInfo(buttons[i]);
-      if (btnColor == 0) btnColor = button.btnColor;
-      //if (String(button.name) == FindButtonNameByID(settings.activeBtn)) button.bckColor = TFT_GREEN;
-      DrawButton(button.xPos, button.yPos, button.width, button.height, button.caption, button.waarde, btnColor, button.bckColor, button.name);
-    }
+  Button button = FindButtonByName(btnName);
+  if ((button.pageNo & showVal) > 0) {
+    DrawButton(button.xPos, button.yPos, button.width, button.height, button.caption, button.waarde, button.bottomColor, button.topColor, button.name);
   }
 }
 
-void DrawButton(int xPos, int yPos, int width, int height, String caption, String waarde, uint16_t btnColor, uint16_t bckColor, String Name) {
+void DrawButton(int xPos, int yPos, int width, int height, String caption, String waarde, uint16_t bottomColor, uint16_t topColor, String Name) {
   tft.setTextDatum(MC_DATUM);
   DrawBox(xPos, yPos, width, height);
 
   uint16_t gradientStartColor = TFT_BLACK;
-  if (Name == FindButtonNameByID(settings.activeBtn)) gradientStartColor = bckColor;
+  if (Name == FindButtonNameByID(settings.activeBtn)) gradientStartColor = topColor;
 
-  tft.fillRectVGradient(xPos + 2, yPos + 2, width - 4, (height / 2) + 1, gradientStartColor, bckColor);
+  tft.fillRectVGradient(xPos + 2, yPos + 2, width - 4, (height / 2) + 1, gradientStartColor, topColor);
   tft.setTextPadding(tft.textWidth(caption));
   tft.setTextColor(TFT_WHITE);
-  if (gradientStartColor == bckColor) tft.setTextColor(TFT_BLACK);
+  if (gradientStartColor == topColor) tft.setTextColor(TFT_BLACK);
   tft.drawString(caption, xPos + (width / 2), yPos + (height / 2) - 5, 2);
 
   if (Name == "Navigate") {
@@ -761,13 +749,13 @@ void DrawButton(int xPos, int yPos, int width, int height, String caption, Strin
     tft.drawString(">     >>     ", 309, yPos + (height / 2) - 5, 2);
   }
 
-  //tft.fillRectVGradient(xPos + 2,yPos + 2 + (height/2), width-4, (height/2)-4, TFT_BLACK, btnColor);
-  tft.fillRoundRect(xPos + 2, yPos + 2 + (height / 2), width - 4, (height / 2) - 4, 3, btnColor);
+  //tft.fillRectVGradient(xPos + 2,yPos + 2 + (height/2), width-4, (height/2)-4, TFT_BLACK, bottomColor);
+  tft.fillRoundRect(xPos + 2, yPos + 2 + (height / 2), width - 4, (height / 2) - 4, 3, bottomColor);
 
   if (waarde != "") {
     tft.setTextPadding(tft.textWidth(waarde));
     tft.setTextColor(TFT_YELLOW);
-    if (btnColor != TFT_BLACK) tft.setTextColor(TFT_BLACK);
+    if (bottomColor != TFT_BLACK) tft.setTextColor(TFT_BLACK);
     tft.drawString(waarde, xPos + (width / 2), yPos + (height / 2) + 9, 1);
   }
 }
@@ -811,7 +799,7 @@ Button FindButtonInfo(Button button) {
     if (settings.isMuted == 1) strcpy(button.waarde, "Right");
     if (settings.isMuted == 2) strcpy(button.waarde, "Left");
     if (settings.isMuted == 3) strcpy(button.waarde, "Muted");
-    button.btnColor = settings.isMuted ? TFT_RED : TFT_BLACK;
+    button.bottomColor = settings.isMuted ? TFT_RED : TFT_BLACK;
     sprintf(buf, "%s", WebMuteStatus());
     events.send(buf, "myMute", millis());
   }
@@ -819,7 +807,7 @@ Button FindButtonInfo(Button button) {
   if (button.name == "Mode") {
     sprintf(buttonBuf, "%s", settings.isDab ? "DAB" : "FM");
     strcpy(button.waarde, buttonBuf);
-    button.btnColor = settings.isDab ? TFT_GREEN : TFT_RED;
+    button.bottomColor = settings.isDab ? TFT_GREEN : TFT_RED;
     sprintf(buf, "%s", settings.isDab ? "DAB" : "FM");
     events.send(buf, "myMode", millis());
   }
@@ -838,7 +826,7 @@ Button FindButtonInfo(Button button) {
   }
 
   if (button.name == "Save") {
-    button.btnColor = settings.activeBtn == FindButtonIDByName("MEM") ? TFT_GREY : TFT_BLACK;
+    button.bottomColor = settings.activeBtn == FindButtonIDByName("MEM") ? TFT_GREY : TFT_BLACK;
   }
 
   if (button.name == "LoadList") {
@@ -855,7 +843,7 @@ Button FindButtonInfo(Button button) {
   if (button.name == "Stereo") {
     sprintf(buttonBuf, "%s", settings.isStereo ? "Stereo" : "Mono");
     strcpy(button.waarde, buttonBuf);
-    button.btnColor = settings.isStereo ? TFT_GREEN : TFT_BLACK;
+    button.bottomColor = settings.isStereo ? TFT_GREEN : TFT_BLACK;
   }
 
   if (button.name == "Light") {
