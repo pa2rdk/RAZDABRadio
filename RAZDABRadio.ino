@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.06 Rename HandleButton->HandleFunction and change SaveConfig
 // V1.05 Code review
 // V1.04 Better highlighted button
 // V1.03 Gradient buttons
@@ -526,7 +527,7 @@ void loop() {
 
   if (millis() - saveTime > 2000) {
     saveTime = millis();
-    if (!CompareConfig()) SaveConfig();
+    SaveConfig();
   }
 
   if (actualPage == 1 && millis() - infoTime > 500) {
@@ -566,7 +567,7 @@ void loop() {
       for (int i = 0; i < sizeof(buttons) / sizeof(buttons[0]); i++) {
         if ((buttons[i].pageNo & showVal) > 0) {
           if (x >= buttons[i].xPos && x <= buttons[i].xPos + buttons[i].width && y >= buttons[i].yPos && y <= buttons[i].yPos + buttons[i].height) {
-            HandleButton(buttons[i], x, y);
+            HandleFunction(buttons[i], x, y);
             pressTime = millis();
           }
         }
@@ -951,28 +952,28 @@ void HandleWebCommand() {
 
 void HandleWebButton(String buttonName, String activeButtonName) {
   settings.activeBtn = FindButtonIDByName(activeButtonName);
-  HandleButton(buttonName, true);
+  HandleFunction(buttonName, true);
 }
 
-void HandleButton(String buttonName, bool doDraw) {
+void HandleFunction(String buttonName, bool doDraw) {
   Button button = FindButtonByName(buttonName);
-  HandleButton(button, 0, 0, doDraw);
+  HandleFunction(button, 0, 0, doDraw);
 }
 
-void HandleButton(String buttonName, int x, int y) {
-  HandleButton(buttonName, x, y, true);
+void HandleFunction(String buttonName, int x, int y) {
+  HandleFunction(buttonName, x, y, true);
 }
 
-void HandleButton(String buttonName, int x, int y, bool doDraw) {
+void HandleFunction(String buttonName, int x, int y, bool doDraw) {
   Button button = FindButtonByName(buttonName);
-  HandleButton(button, x, y, doDraw);
+  HandleFunction(button, x, y, doDraw);
 }
 
-void HandleButton(Button button, int x, int y) {
-  HandleButton(button, x, y, true);
+void HandleFunction(Button button, int x, int y) {
+  HandleFunction(button, x, y, true);
 }
 
-void HandleButton(Button button, int x, int y, bool doDraw) {
+void HandleFunction(Button button, int x, int y, bool doDraw) {
   if (button.name == "ToRight") {
     if (settings.activeBtn == FindButtonIDByName("Tune")) {
       if (doDraw) DrawPatience();
@@ -1573,10 +1574,14 @@ void WaitForWakeUp() {
 **            EEPROM Routines
 ***************************************************************************************/
 bool SaveConfig() {
-  for (unsigned int t = 0; t < sizeof(settings); t++)
-    EEPROM.write(offsetEEPROM + t, *((char *)&settings + t));
-  EEPROM.commit();
-  if (settings.isDebug) Serial.println("Configuration:saved");
+  bool commitEeprom = false;
+  for (unsigned int t = 0; t < sizeof(settings); t++){
+    if (*((char *)&settings + t) != EEPROM.read(offsetEEPROM + t)){
+      EEPROM.write(offsetEEPROM + t, *((char *)&settings + t));
+      commitEeprom = true;
+    } 
+  }
+  if (commitEeprom) EEPROM.commit();
   return true;
 }
 
@@ -1587,13 +1592,6 @@ bool LoadConfig() {
       *((char *)&settings + t) = EEPROM.read(offsetEEPROM + t);
   } else retVal = false;
   if (settings.isDebug) Serial.println("Configuration:" + retVal ? "Loaded" : "Not loaded");
-  return retVal;
-}
-
-bool CompareConfig() {
-  bool retVal = true;
-  for (unsigned int t = 0; t < sizeof(settings); t++)
-    if (*((char *)&settings + t) != EEPROM.read(offsetEEPROM + t)) retVal = false;
   return retVal;
 }
 
