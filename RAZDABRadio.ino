@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.07 Moved website to core0 and changed Serial.print* to DebugPrint*
 // V1.06 Rename HandleButton->HandleFunction and change SaveConfig
 // V1.05 Code review
 // V1.04 Better highlighted button
@@ -102,6 +103,17 @@
 
 #define offsetEEPROM 32
 #define EEPROM_SIZE 4096
+
+#define DebugEnabled
+#ifdef DebugEnabled
+#define DebugPrint(x)         Serial.print(x)
+#define DebugPrintln(x)       Serial.println(x)
+#define DebugPrintf(x, ...)   Serial.printf(x, __VA_ARGS__)
+#else
+#define DebugPrint(x)  
+#define DebugPrintln(x)
+#define DebugPrintf(x, ...)
+#endif
 
 const char mode_0[] = "Dual";
 const char mode_1[] = "Mono";
@@ -299,11 +311,11 @@ void setup() {
       ;
   }
 
-  if (settings.isDebug) Serial.print(F("PI4RAZ DAB\n\n"));
-  if (settings.isDebug) Serial.print(F("Initializing....."));
+  DebugPrint(F("PI4RAZ DAB\n\n"));
+  DebugPrint(F("Initializing....."));
 
   if (!SPIFFS.begin(true)) {
-    if (settings.isDebug) Serial.println("SPIFFS Mount Failed");
+    DebugPrintln("SPIFFS Mount Failed");
   }
 
   ledcSetup(ledChannelforTFT, ledFreq, ledResol);
@@ -330,20 +342,20 @@ void setup() {
   if (Dab.error != 0) {
     sprintf(dispInfo, "DAB Error %02d", Dab.error);
     DrawButton(80, 120, 160, 30, dispInfo, "", TFT_BLACK, TFT_WHITE, "");
-    if (settings.isDebug) Serial.printf("failed to initialize DAB shield %d", Dab.error);
+    DebugPrintf("failed to initialize DAB shield %d", Dab.error);
     while (1)
       ;
   }
 
   if (!EEPROM.begin(EEPROM_SIZE)) {
     DrawButton(80, 120, 160, 30, "EEPROM Failed", "", TFT_BLACK, TFT_WHITE, "");
-    if (settings.isDebug) Serial.println("failed to initialise EEPROM");
+    DebugPrintln("failed to initialise EEPROM");
     while (1)
       ;
   }
 
   if (!LoadConfig()) {
-    if (settings.isDebug) Serial.println(F("Writing defaults"));
+    DebugPrintln(F("Writing defaults"));
     SaveConfig();
     Memory myMemory = { 0, 1, 0, 0, 87500 };
     for (int x = 0; x < 10; x++) {
@@ -359,13 +371,13 @@ void setup() {
   // add Wi-Fi networks from All_Settings.h
   for (int i = 0; i < sizeof(wifiNetworks) / sizeof(wifiNetworks[0]); i++) {
     wifiMulti.addAP(wifiNetworks[i].SSID, wifiNetworks[i].PASSWORD);
-    if (settings.isDebug) Serial.printf("Wifi:%s, Pass:%s.", wifiNetworks[i].SSID, wifiNetworks[i].PASSWORD);
-    if (settings.isDebug) Serial.println();
+    DebugPrintf("Wifi:%s, Pass:%s.", wifiNetworks[i].SSID, wifiNetworks[i].PASSWORD);
+    DebugPrintln();
   }
   DrawButton(80, 80, 160, 30, "Connecting to WiFi", "", TFT_BLACK, TFT_WHITE, "");
   wifiMulti.addAP(settings.wifiSSID, settings.wifiPass);
-  if (settings.isDebug) Serial.printf("Wifi:%s, Pass:%s.", settings.wifiSSID, settings.wifiPass);
-  if (settings.isDebug) Serial.println();
+  DebugPrintf("Wifi:%s, Pass:%s.", settings.wifiSSID, settings.wifiPass);
+  DebugPrintln();
   if (Connect2WiFi()) {
     wifiAvailable = true;
     DrawButton(80, 80, 160, 30, "Connected to WiFi", WiFi.SSID(), TFT_BLACK, TFT_WHITE, "");
@@ -377,7 +389,25 @@ void setup() {
     WiFi.softAP("RAZDABRadio", NULL);
   }
 
-  server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+  xTaskCreatePinnedToCore(
+    SecondTask
+    ,  "SecondTask"    // A name just for humans
+    ,  10000             // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  0                // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL
+    ,  0 );             // Core 0
+
+
+  settings.isMuted = 0;
+  SetRadio(true);
+  ledcWrite(ledChannelforTFT, 256 - (settings.currentBrightness * 2.56));
+  DrawScreen();
+}
+
+void SecondTask(void *pvParameters)  // This is a task.
+{
+    server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/css", css_html);
   });
 
@@ -463,41 +493,41 @@ void setup() {
   });
 
   events.onConnect([](AsyncEventSourceClient *client) {
-    Serial.println("Connect web");
+    DebugPrintln("Connect web");
     if (client->lastId()) {
-      Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
+      DebugPrintf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
     }
     client->send("hello!", NULL, millis(), 10000);
   });
   server.addHandler(&events);
 
   server.begin();
-  if (settings.isDebug) Serial.println("HTTP server started");
+  DebugPrintln("HTTP server started");
 
-  settings.isMuted = 0;
-  SetRadio(true);
-  ledcWrite(ledChannelforTFT, 256 - (settings.currentBrightness * 2.56));
-  DrawScreen();
+  for (;;) // A Task shall never return or exit.
+  {
+
+  }
 }
 
 void DisplaySettings(String displayText) {
-  if (settings.isDebug) Serial.println();
-  if (settings.isDebug) Serial.println(displayText);
-  if (settings.isDebug) Serial.println();
-  if (settings.isDebug) Serial.printf("Active Button = %d\r\n", settings.activeBtn);
-  if (settings.isDebug) Serial.printf("Brighness = %d\r\n", settings.currentBrightness);
-  if (settings.isDebug) Serial.printf("Dab channel = %d\r\n", settings.dabChannel);
-  if (settings.isDebug) Serial.printf("Dab serviceID = %d\r\n", settings.dabServiceID);
-  if (settings.isDebug) Serial.printf("Dab service = %d\r\n", actualDabService);
-  if (settings.isDebug) Serial.printf("FM Freq = %d\r\n", settings.fmFreq);
-  if (settings.isDebug) Serial.printf("Is Dab = %s\r\n", settings.isDab ? "True" : "False");
-  if (settings.isDebug) Serial.printf("Is Stereo = %s\r\n", settings.isStereo ? "True" : "False");
-  if (settings.isDebug) Serial.printf("Is Muted = %d\r\n", settings.isMuted);
+  DebugPrintln();
+  DebugPrintln(displayText);
+  DebugPrintln();
+  DebugPrintf("Active Button = %d\r\n", settings.activeBtn);
+  DebugPrintf("Brighness = %d\r\n", settings.currentBrightness);
+  DebugPrintf("Dab channel = %d\r\n", settings.dabChannel);
+  DebugPrintf("Dab serviceID = %d\r\n", settings.dabServiceID);
+  DebugPrintf("Dab service = %d\r\n", actualDabService);
+  DebugPrintf("FM Freq = %d\r\n", settings.fmFreq);
+  DebugPrintf("Is Dab = %s\r\n", settings.isDab ? "True" : "False");
+  DebugPrintf("Is Stereo = %s\r\n", settings.isStereo ? "True" : "False");
+  DebugPrintf("Is Muted = %d\r\n", settings.isMuted);
 }
 
 byte findChannelOnDabServiceID(uint16_t dabServiceID) {
-  if (settings.isDebug) Serial.printf("DabService:%d, QTY:%d", dabServiceID, Dab.numberofservices);
-  if (settings.isDebug) Serial.println();
+  DebugPrintf("DabService:%d, QTY:%d", dabServiceID, Dab.numberofservices);
+  DebugPrintln();
   for (int i = 0; i < Dab.numberofservices; i++) {
     if (Dab.service[i].ServiceID == dabServiceID) return i;
   }
@@ -506,13 +536,13 @@ byte findChannelOnDabServiceID(uint16_t dabServiceID) {
 
 bool Connect2WiFi() {
   startTime = millis();
-  if (settings.isDebug) Serial.print("Connect to Multi WiFi");
+  DebugPrint("Connect to Multi WiFi");
   while (wifiMulti.run() != WL_CONNECTED && millis() - startTime < 30000) {
     // esp_task_wdt_reset();
     delay(1000);
-    if (settings.isDebug) Serial.print(".");
+    DebugPrint(".");
   }
-  if (settings.isDebug) Serial.println();
+  DebugPrintln();
   return (WiFi.status() == WL_CONNECTED);
 }
 
@@ -620,9 +650,9 @@ void DrawServiceData() {
       sprintf(actualInfo, "%s - %s ", Dab.ps, Dab.ServiceData);
     }
     if (strcmp(lastInfo, actualInfo) != 0) {
-      if (settings.isDebug) Serial.println("Old and new differ");
+      DebugPrintln("Old and new differ");
       strcpy(lastInfo, actualInfo);
-      if (settings.isDebug) Serial.println(actualInfo);
+      DebugPrintln(actualInfo);
       infoPos = 0;
     }
   }
@@ -642,7 +672,7 @@ void DrawFrequency() {
       tft.setTextPadding(tft.textWidth(buf));
       tft.drawString(buf, 2, 14, 1);
       tft.setTextColor(TFT_CYAN, TFT_BLACK);
-      if (settings.isDebug) Serial.printf("Draw fequency:%d,%d,%s - %d\r\n", Dab.service[actualDabService].ServiceID, actualDabService, Dab.service[actualDabService].Label, Dab.service[actualDabService].CompID);
+      DebugPrintf("Draw fequency:%d,%d,%s - %d\r\n", Dab.service[actualDabService].ServiceID, actualDabService, Dab.service[actualDabService].Label, Dab.service[actualDabService].CompID);
       if (Dab.numberofservices > 0) {
         sprintf(buf, "%s", Dab.service[actualDabService].Label);
 
@@ -668,7 +698,7 @@ void DrawFrequency() {
       events.send("", "DABFreq", millis());
     }
     DrawStatus();
-    if (settings.isDab && settings.isDebug) Serial.printf("\r\nDabzaken ECC:%d, PI:%d, Ensemble:%s, RomID:%d, PartNo:%d,  VerMajor:%d, PS:%s, DabServiceID:%d, NumberOfServices:%d, EnsembleID:%d\r\n\r\n", Dab.ECC, Dab.pi, Dab.Ensemble, Dab.RomID, Dab.PartNo, Dab.VerMajor, Dab.ps, settings.dabServiceID, Dab.numberofservices, Dab.EnsembleID);
+    if (settings.isDab && settings.isDebug) DebugPrintf("\r\nDabzaken ECC:%d, PI:%d, Ensemble:%s, RomID:%d, PartNo:%d,  VerMajor:%d, PS:%s, DabServiceID:%d, NumberOfServices:%d, EnsembleID:%d\r\n\r\n", Dab.ECC, Dab.pi, Dab.Ensemble, Dab.RomID, Dab.PartNo, Dab.VerMajor, Dab.ps, settings.dabServiceID, Dab.numberofservices, Dab.EnsembleID);
   }
 }
 
@@ -848,7 +878,7 @@ Button FindButtonInfo(Button button) {
   }
 
   if (button.name == "Light") {
-    Serial.println(GetLogoName(settings.dabServiceID));
+    DebugPrintln(GetLogoName(settings.dabServiceID));
     sprintf(buttonBuf, "%d", settings.currentBrightness);
     strcpy(button.waarde, buttonBuf);
   }
@@ -897,7 +927,7 @@ void DrawKeyboardNumber(bool doReset) {
     tft.setTextPadding(tft.textWidth(dabChannels[settings.dabChannelSelected].dabName));
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
     tft.drawString(dabChannels[keyboardNumber].dabName, 282, 88, 2);
-    if (settings.isDebug) Serial.println(dabChannels[keyboardNumber].dabName);
+    DebugPrintln(dabChannels[keyboardNumber].dabName);
   }
 }
 
@@ -942,7 +972,7 @@ void HandleWebCommand() {
   if (webCommand == "ChannelUp") HandleWebButton("ToRight", "LoadList");
   if (webCommand == "ChannelDown") HandleWebButton("ToLeft", "LoadList");
   if (webCommand == "GoChannel") {
-    Serial.printf("Keyboard is %d\r\n", keyboardNumber);
+    DebugPrintf("Keyboard is %d\r\n", keyboardNumber);
     HandleWebButton("Enter", "LoadList");
   }
   if (webCommand == "Mute") HandleWebButton("Mute", "LoadList");
@@ -1004,12 +1034,12 @@ void HandleFunction(Button button, int x, int y, bool doDraw) {
           }
         }
         SetRadio();
-        if (settings.isDebug) Serial.printf("Tune:%d, Service:%d, Channels:%d", settings.dabChannel, actualDabService, DAB_FREQS);
+        DebugPrintf("Tune:%d, Service:%d, Channels:%d", settings.dabChannel, actualDabService, DAB_FREQS);
       }
       if (!settings.isDab) {
         Dab.seek(1, 1);
         settings.fmFreq = Dab.freq * 10;
-        if (settings.isDebug) Serial.println(settings.fmFreq);
+        DebugPrintln(settings.fmFreq);
         if (doDraw) DrawFrequency();
       }
       if (doDraw) DrawButtons();
@@ -1069,7 +1099,7 @@ void HandleFunction(Button button, int x, int y, bool doDraw) {
           }
         }
         SetRadio();
-        if (settings.isDebug) Serial.printf("Tune:%d, Service:%d, Channels:%d", settings.dabChannel, actualDabService, DAB_FREQS);
+        DebugPrintf("Tune:%d, Service:%d, Channels:%d", settings.dabChannel, actualDabService, DAB_FREQS);
       }
       if (!settings.isDab) {
         Dab.seek(0, 1);
@@ -1302,7 +1332,7 @@ void HandleFunction(Button button, int x, int y, bool doDraw) {
     if (((millis() - startOffPressed) > 5000)) {
       if ((settings.activeBtn == FindButtonIDByName("LoadList")) && (settings.dabChannelsCount > 0)) {
         DrawPatience(false, "Channels gereset");
-        if (settings.isDebug) Serial.printf("Off pressed for %d seconds\r\n", millis() / 1000 - startOffPressed);
+        DebugPrintf("Off pressed for %d seconds\r\n", millis() / 1000 - startOffPressed);
 
         SPIFFS.format();
         settings.dabChannelSelected = 0;
@@ -1401,7 +1431,7 @@ void HandleFunction(Button button, int x, int y, bool doDraw) {
     }
     if (settings.activeBtn == FindButtonIDByName("Save")) {
       settings.memoryChannel = keyboardNumber;
-      if (settings.isDebug) Serial.printf("SaveButton:%d\r\n", settings.memoryChannel);
+      DebugPrintf("SaveButton:%d\r\n", settings.memoryChannel);
       Memory myMemory = { settings.isDab, settings.isStereo, settings.dabChannel, settings.dabServiceID, settings.fmFreq };
       memories[settings.memoryChannel] = myMemory;
       SetRadioFromMemory(settings.memoryChannel);
@@ -1438,7 +1468,7 @@ void SetRadioFromMemory(int channel) {
   settings.fmFreq = memories[channel].fmFreq;
   SetRadio(false, false);
   if (settings.isDab) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
-  if (settings.isDebug) Serial.printf("Set from Memory: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n", settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
+  DebugPrintf("Set from Memory: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n", settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
   DrawFrequency();
 }
 
@@ -1450,7 +1480,7 @@ void SetRadioFromList(int channel) {
   settings.dabServiceID = dabChannels[channel].dabServiceID;
   SetRadio(false, false);
   if (settings.isDab) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
-  if (settings.isDebug) Serial.printf("Set from List: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n", settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
+  DebugPrintf("Set from List: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n", settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
   DrawFrequency();
 }
 
@@ -1464,7 +1494,7 @@ void SetRadio(bool firstTime) {
 
 void SetRadio(bool firstTime, bool drawFreq) {
   actualInfo[0] = '\0';
-  if (settings.isDebug) Serial.printf("Set from Radio: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n", settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
+  DebugPrintf("Set from Radio: DABChannel=%d, DABService=%d %d, DABServiceID=%d, isDab=%d, Volume=%d, isStereo=%d\r\n", settings.dabChannel, actualDabService, findChannelOnDabServiceID(settings.dabServiceID), settings.dabServiceID, settings.isDab, settings.volume, settings.isStereo);
 
   bool doTune = false;
   if (actualIsDab != settings.isDab || firstTime) {
@@ -1489,7 +1519,7 @@ void SetRadio(bool firstTime, bool drawFreq) {
     if (actualDabChannel != settings.dabChannel || firstTime || doTune) {
       actualDabChannel = settings.dabChannel;
       Dab.tune(settings.dabChannel);
-      if (settings.isDebug) Serial.printf("Dab channel set to %d\r\n", actualDabChannel);
+      DebugPrintf("Dab channel set to %d\r\n", actualDabChannel);
     }
     if (firstTime) actualDabService = findChannelOnDabServiceID(settings.dabServiceID);
     Dab.set_service(findChannelOnDabServiceID(settings.dabServiceID));
@@ -1516,14 +1546,14 @@ void LoadList() {
   for (uint8_t i = 0; i < DAB_FREQS; i++) {
     sprintf(buf, "Even geduld...%d/%d (%d)", i, DAB_FREQS - 1, settings.dabChannelsCount);
     tft.drawString(buf, 0, 30, 4);
-    if (settings.isDebug) Serial.printf("ID:%d\r\n", i);
+    DebugPrintf("ID:%d\r\n", i);
     Dab.tune(i);
     actualDabChannel = i;
     //if (Dab.numberofservices>0){
     if (Dab.servicevalid()) {
       for (int j = 0; j < Dab.numberofservices; j++) {
         actualDabService = j;
-        if (settings.isDebug) Serial.printf("ID:%d, Service:%d\r\n", i, j);
+        DebugPrintf("ID:%d, Service:%d\r\n", i, j);
         addRec(settings.dabChannelsCount + 1);
         dabChannels[settings.dabChannelsCount].dabChannel = i;
         dabChannels[settings.dabChannelsCount].dabServiceID = Dab.service[j].ServiceID;
@@ -1533,10 +1563,10 @@ void LoadList() {
     }
   }
 
-  if (settings.isDebug) Serial.println("Show list");
+  DebugPrintln("Show list");
   if (settings.dabChannelsCount > 0) {
     for (int i = 0; i < settings.dabChannelsCount; i++) {
-      if (settings.isDebug) Serial.printf("ID %d = Channel:%d, ServiceID:%d, Name:%s\r\n", i, dabChannels[i].dabChannel, dabChannels[i].dabServiceID, dabChannels[i].dabName);
+      DebugPrintf("ID %d = Channel:%d, ServiceID:%d, Name:%s\r\n", i, dabChannels[i].dabChannel, dabChannels[i].dabServiceID, dabChannels[i].dabName);
     }
     settings.dabChannelSelected = 0;
     SaveStationList();
@@ -1591,7 +1621,7 @@ bool LoadConfig() {
     for (unsigned int t = 0; t < sizeof(settings); t++)
       *((char *)&settings + t) = EEPROM.read(offsetEEPROM + t);
   } else retVal = false;
-  if (settings.isDebug) Serial.println("Configuration:" + retVal ? "Loaded" : "Not loaded");
+  DebugPrintln("Configuration:" + retVal ? "Loaded" : "Not loaded");
   return retVal;
 }
 
@@ -1599,14 +1629,14 @@ bool SaveMemories() {
   for (unsigned int t = 0; t < sizeof(memories); t++)
     EEPROM.write(offsetEEPROM + sizeof(settings) + 10 + t, *((char *)&memories + t));
   EEPROM.commit();
-  if (settings.isDebug) Serial.println("Memories:saved");
+  DebugPrintln("Memories:saved");
   return true;
 }
 
 bool LoadMemories() {
   for (unsigned int t = 0; t < sizeof(memories); t++)
     *((char *)&memories + t) = EEPROM.read(offsetEEPROM + sizeof(settings) + 10 + t);
-  if (settings.isDebug) Serial.println("Memories loaded");
+  DebugPrintln("Memories loaded");
   return true;
 }
 
@@ -1632,13 +1662,13 @@ bool SaveStationList() {
 }
 
 bool LoadStationList() {
-  if (settings.isDebug) Serial.printf("Loading Stationlist: %d stations of %d bytes", settings.dabChannelsCount, sizeof(DABChannel));
+  DebugPrintf("Loading Stationlist: %d stations of %d bytes", settings.dabChannelsCount, sizeof(DABChannel));
   for (int i = 0; i < settings.dabChannelsCount; i++) {
     addRec(i + 1);
     for (unsigned int t = 0; t < sizeof(DABChannel); t++)
       *((char *)&dabChannels[i] + t) = EEPROM.read(offsetEEPROM + sizeof(settings) + sizeof(memories) + (i * sizeof(DABChannel)) + 10 + t);
   }
-  if (settings.isDebug) Serial.println("Stationlist loaded");
+  DebugPrintln("Stationlist loaded");
   return true;
 }
 /***************************************************************************************
@@ -1681,11 +1711,11 @@ uint16_t GetLogo(char *service, char *bearer, uint32_t id) {
   char srv[128];
   char filename[32];
 
-  if (settings.isDebug) Serial.printf("radioDNS = %s\n", service);
-  if (settings.isDebug) Serial.printf("bearer = %s\n", bearer);
+  DebugPrintf("radioDNS = %s\n", service);
+  DebugPrintf("bearer = %s\n", bearer);
 
   if (GetCNAME(cname, service) == 0) {
-    if (settings.isDebug) Serial.printf("No CNAME\n");
+    DebugPrintln("No CNAME");
     return 0;
   }
 
@@ -1714,7 +1744,7 @@ uint16_t GetLogo(char *service, char *bearer, uint32_t id) {
     if (strcmp(ext, ".png") || strcmp(ext, ".jpg")) {
       ext[4] = '\0';
       sprintf(filename, "/%04x%s", id, ext);
-      if (settings.isDebug) Serial.printf("filename = %s\n", filename);
+      DebugPrintf("filename = %s\n", filename);
       if (GetImage(filename, imageurl) == 1)
         DrawLogo(id);
       return id;
@@ -1733,9 +1763,9 @@ int GetCNAME(char *cname, const char *service) {
     // Add a scoping block for HTTPClient https to make sure it is destroyed before WiFiClientSecure *client is
     HTTPClient https;
 
-    //if (settings.isDebug) Serial.print("[HTTPS] begin...\n");
+    //DebugPrint("[HTTPS] begin...\n");
     sprintf(dns_string, "https://dns.google/resolve?name=%s&type=CNAME", service);
-    if (settings.isDebug) Serial.printf("[HTTPS] begin... %s\n", dns_string);
+    DebugPrintf("[HTTPS] begin... %s\n", dns_string);
 
     if (https.begin(*client, dns_string)) {  // HTTPS
       // start connection and send HTTP header
@@ -1753,24 +1783,24 @@ int GetCNAME(char *cname, const char *service) {
           DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
 
           if (error) {
-            if (settings.isDebug) Serial.print("deserializeJson() failed: ");
-            if (settings.isDebug) Serial.println(error.c_str());
+            DebugPrint("deserializeJson() failed: ");
+            DebugPrintln(error.c_str());
             delete client;
             return 0;
           } else {
             serializeJsonPretty(doc, Serial);
             if (doc["Answer"][0]["data"] == nullptr && doc["Authority"][0]["data"] == nullptr) {
-              if (settings.isDebug) Serial.println("no data\n");
+              DebugPrintln("no data\n");
               https.end();
               delete client;
               return 0;
             }
 
             if (doc["Authority"][0]["data"] == nullptr) {
-              if (settings.isDebug) Serial.printf("%s", (const char *)doc["Answer"][0]["data"]);
+              DebugPrintf("%s", (const char *)doc["Answer"][0]["data"]);
               strcpy(cname, (const char *)doc["Answer"][0]["data"]);
             } else {
-              if (settings.isDebug) Serial.printf("%s", (const char *)doc["Authority"][0]["data"]);
+              DebugPrintf("%s", (const char *)doc["Authority"][0]["data"]);
               strcpy(cname, (const char *)doc["Authority"][0]["data"]);
               for (int i = 0; i < strlen(cname); i++) {
                 if (cname[i] == ' ') {
@@ -1779,15 +1809,15 @@ int GetCNAME(char *cname, const char *service) {
                 }
               }
             }
-            if (settings.isDebug) Serial.printf("cname:%s\n", cname);
+            DebugPrintf("cname:%s\n", cname);
 
             if (strlen(cname) > 0) {
               if (cname[strlen(cname) - 1] == '.') {
                 cname[strlen(cname) - 1] = '\0';
               }
-              if (settings.isDebug) Serial.printf("Nett cname:%s\n", cname);
+              DebugPrintf("Nett cname:%s\n", cname);
             } else {
-              if (settings.isDebug) Serial.println("No CNAME\n");
+              DebugPrintln("No CNAME\n");
               https.end();
               delete client;
               return 0;
@@ -1795,7 +1825,7 @@ int GetCNAME(char *cname, const char *service) {
           }
         }
       } else {
-        if (settings.isDebug) Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        DebugPrintf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
         https.end();
         client->flush();
         client->stop();
@@ -1804,13 +1834,13 @@ int GetCNAME(char *cname, const char *service) {
       }
       https.end();
     } else {
-      if (settings.isDebug) Serial.printf("[HTTPS] Unable to connect\n");
+      DebugPrintln("[HTTPS] Unable to connect");
     }
     // End extra scoping block
 
     delete client;
   } else {
-    if (settings.isDebug) Serial.println("Unable to create client");
+    DebugPrintln("Unable to create client");
   }
   return 1;
 }
@@ -1826,36 +1856,36 @@ int GetSRV(char *srv, const char *cname) {
     HTTPClient https;
 
     sprintf(dns_string, "https://dns.google/resolve?name=_radioepg._tcp.%s&type=SRV", cname);
-    if (settings.isDebug) Serial.printf("[HTTPS] begin... %s\n", dns_string);
+    DebugPrintf("[HTTPS] begin... %s\n", dns_string);
 
     if (https.begin(*client, dns_string)) {  // HTTPS
       // start connection and send HTTP header
       int httpCode = https.GET();
 
       // httpCode will be negative on error
-      if (settings.isDebug) Serial.printf("[HTTPS] Code:%d\n", httpCode);
+      DebugPrintf("[HTTPS] Code:%d\n", httpCode);
       if (httpCode > 0) {
         // HTTP header has been send and Server response header has been handled
-        //if (settings.isDebug) Serial.printf("[HTTPS] GET... code: %d\n", httpCode);
+        //DebugPrintf("[HTTPS] GET... code: %d\n", httpCode);
 
         // file found at server
         if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
           String payload = https.getString();
-          if (settings.isDebug) Serial.printf("[HTTPS] Payload:%s\n", payload);
+          DebugPrintf("[HTTPS] Payload:%s\n", payload);
           filter["Answer"][0]["data"] = true;
           filter["Authority"][0]["data"] = true;
           DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
 
           if (error) {
-            if (settings.isDebug) Serial.print("deserializeJson() failed: ");
-            if (settings.isDebug) Serial.println(error.c_str());
+            DebugPrint("deserializeJson() failed: ");
+            DebugPrintln(error.c_str());
             https.end();
             delete client;
             return 0;
           } else {
             serializeJsonPretty(doc, Serial);
             if (doc["Answer"][0]["data"] == nullptr && doc["Authority"][0]["data"] == nullptr) {
-              if (settings.isDebug) Serial.println("no data\n");
+              DebugPrintln("no data\n");
               https.end();
               delete client;
               return 0;
@@ -1880,22 +1910,22 @@ int GetSRV(char *srv, const char *cname) {
             if (srv[strlen(srv) - 1] == '.') {
               srv[strlen(srv) - 1] = '\0';
             }
-            if (settings.isDebug) Serial.println(srv);
+            DebugPrintln(srv);
           }
         }
       } else {
-        if (settings.isDebug) Serial.printf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        DebugPrintf("[HTTPS] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
       }
       https.end();
     } else {
-      if (settings.isDebug) Serial.printf("[HTTPS] Unable to connect\n");
+      DebugPrintln("[HTTPS] Unable to connect");
       delete client;
       return 0;
     }
     // End extra scoping block
     delete client;
   } else {
-    if (settings.isDebug) Serial.println("Unable to create client");
+    DebugPrintln("Unable to create client");
     return 0;
   }
   return 1;
@@ -1911,7 +1941,7 @@ int GetServiceInfo(char *serviceinfo, uint16_t maxsize, const char *srv, const c
   HTTPClient https;
 
   sprintf(xmlurl, "http://%s/radiodns/spi/3.1/SI.xml", srv);
-  if (settings.isDebug) Serial.printf("[HTTPS] begin... %s\n", xmlurl);
+  DebugPrintf("[HTTPS] begin... %s\n", xmlurl);
 
   if (https.begin(xmlurl)) {  // HTTPS
     int i;
@@ -1923,10 +1953,10 @@ int GetServiceInfo(char *serviceinfo, uint16_t maxsize, const char *srv, const c
     // httpCode will be negative on error
     if (httpCode > 0) {
       // HTTP header has been send and Server response header has been handled
-      //if (settings.isDebug) Serial.printf("[HTTP] GET... code: %d\n", httpCode);
+      //DebugPrintf("[HTTP] GET... code: %d\n", httpCode);
       if (httpCode == HTTP_CODE_MOVED_PERMANENTLY) {
         String NewLocation = https.header("Location");
-        if (settings.isDebug) Serial.printf("Code 301 (moved permanently): %s", NewLocation.c_str());
+        DebugPrintf("Code 301 (moved permanently): %s", NewLocation.c_str());
         https.end();
         client = new WiFiClientSecure;
         client->setInsecure();
@@ -1940,8 +1970,8 @@ int GetServiceInfo(char *serviceinfo, uint16_t maxsize, const char *srv, const c
       {
         int len = https.getSize();
 
-        if (settings.isDebug) Serial.println(https.header("Content-Type"));
-        if (settings.isDebug) Serial.printf("FileSize %d\n", len);
+        DebugPrintln(https.header("Content-Type"));
+        DebugPrintf("FileSize %d\n", len);
 
         WiFiClient *stream = https.getStreamPtr();
 
@@ -1965,10 +1995,10 @@ int GetServiceInfo(char *serviceinfo, uint16_t maxsize, const char *srv, const c
           }
         }
       } else {
-        if (settings.isDebug) Serial.printf("[HTTP] GET2... failed, error: %s\n", https.errorToString(httpCode).c_str());
+        DebugPrintf("[HTTP] GET2... failed, error: %s\n", https.errorToString(httpCode).c_str());
       }
     } else {
-      if (settings.isDebug) Serial.printf("[HTTP] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
+      DebugPrintf("[HTTP] GET... failed, error: %s\n", https.errorToString(httpCode).c_str());
     }
 
     https.end();
@@ -1976,7 +2006,7 @@ int GetServiceInfo(char *serviceinfo, uint16_t maxsize, const char *srv, const c
     if (client)
       delete client;
   } else {
-    if (settings.isDebug) Serial.printf("[HTTP] Unable to connect\n");
+    DebugPrintln("[HTTP] Unable to connect");
   }
   return found;
 }
@@ -1985,7 +2015,7 @@ int ParseXMLImageURL(char *url, char *mime, const char *xml) {
   using namespace tinyxml2;
   XMLDocument xmlDocument;
   if (xmlDocument.Parse(xml) != tinyxml2::XML_SUCCESS) {
-    if (settings.isDebug) Serial.println("Error parsing");
+    DebugPrintln("Error parsing");
     return 0;
   }
 
@@ -2007,7 +2037,7 @@ int ParseXMLImageURL(char *url, char *mime, const char *xml) {
             strcpy(url, multimedia->Attribute("url"));
           if (multimedia->Attribute("mimeValue"))
             strcpy(mime, multimedia->Attribute("mimeValue"));
-          if (settings.isDebug) Serial.printf("Found (%dx%d), %s type:%s\n", height, width, url, mime);
+          DebugPrintf("Found (%dx%d), %s type:%s\n", height, width, url, mime);
           return 1;
         }
       }
@@ -2029,7 +2059,7 @@ int GetImage(const char *filename, const char *url) {
   if (strlen(url)) {
     //download image
     File f = SPIFFS.open(filename, "w");
-    if (settings.isDebug) Serial.printf("[HTTPS] begin... %s\n", url);
+    DebugPrintf("[HTTPS] begin... %s\n", url);
 
     bool http_rc;
     if (strncmp(url, "https://", 8) == 0) {
@@ -2043,7 +2073,7 @@ int GetImage(const char *filename, const char *url) {
     if (http_rc) {
       int i;
 
-      // if (settings.isDebug) Serial.print("[HTTP] GET...\n");
+      // DebugPrint("[HTTP] GET...\n");
       // start connection and send HTTP header
       const char *headerKeys[] = { "Content-Type" };
       const size_t numberOfHeaders = 1;
@@ -2055,8 +2085,8 @@ int GetImage(const char *filename, const char *url) {
         // file found at server
         if (httpCode == HTTP_CODE_OK) {
           int len = https.getSize();
-          if (settings.isDebug) Serial.println(https.header("Content-Type"));
-          if (settings.isDebug) Serial.printf("FileSize %d\n", len);
+          DebugPrintln(https.header("Content-Type"));
+          DebugPrintf("FileSize %d\n", len);
 
           WiFiClient *stream = https.getStreamPtr();
           int total = 0;
@@ -2077,7 +2107,7 @@ int GetImage(const char *filename, const char *url) {
           }
           if (total > 0)
             success = 1;
-          if (settings.isDebug) Serial.printf("total %d\n", total);
+          DebugPrintf("total %d\n", total);
         }
       }
       https.end();
@@ -2088,7 +2118,7 @@ int GetImage(const char *filename, const char *url) {
   if (client)
     delete client;
 
-  if (settings.isDebug) Serial.printf("GetImage %s\n", success ? "success" : "fail");
+  DebugPrintf("GetImage %s\n", success ? "success" : "fail");
   return success;
 }
 
@@ -2167,7 +2197,7 @@ bool ParseService(char *serviceinfo, uint16_t maxsize, const char *text, const c
           serviceindex++;
           stringindex++;
           if (stringindex == strlen(servicestart)) {
-            //if (settings.isDebug) Serial.printf("stringindex = %d, %d, %c", stringindex, strlen(servicestart), text[i]);
+            //DebugPrintf("stringindex = %d, %d, %c", stringindex, strlen(servicestart), text[i]);
             stringindex = 0;
             servicestate = 1;
           }
@@ -2204,7 +2234,7 @@ bool ParseService(char *serviceinfo, uint16_t maxsize, const char *text, const c
 bool FindOurService(const char *text, const char *bearer) {
   if (strstr(text, bearer) != 0) {
     //this serivce xml contains the station we are looking for
-    if (settings.isDebug) Serial.printf("Found it\n");
+    DebugPrintln("Found it");
     return true;
   }
   return false;
@@ -2220,7 +2250,7 @@ char *GetLogoName(uint32_t id) {
   if (SPIFFS.exists(pngfilename)) sprintf(logoBuf, "<img width=\"128\" height=\"128\" src=\"/dablogo?plaatje=%s\">", pngfilename);
   else if (SPIFFS.exists(jpgfilename)) sprintf(logoBuf, "<img width=\"128\" height=\"128\" src=\"/dablogo?plaatje=%s\">", jpgfilename);
   else strcpy(logoBuf, "<h4>Dablogo<br>not<br>available</h4>");
-  Serial.println(logoBuf);
+  DebugPrintln(logoBuf);
   return logoBuf;
 }
 
@@ -2234,8 +2264,8 @@ void DrawLogo(uint32_t id) {
   if (SPIFFS.exists(pngfilename)) {
     int rc = png.open((const char *)pngfilename, myOpen, myClose, myRead, mySeek, PNGDraw);
     if (rc == PNG_SUCCESS) {
-      if (settings.isDebug) Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
-      if (settings.isDebug) Serial.printf("PNG bufferSize %d\n", png.getBufferSize());
+      DebugPrintf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
+      DebugPrintf("PNG bufferSize %d\n", png.getBufferSize());
       rc = png.decode(NULL, 0);
       png.close();
     }
@@ -2243,8 +2273,8 @@ void DrawLogo(uint32_t id) {
     //.jpg might not be a JPEG file - try openning it in pngdec
     int rc = png.open((const char *)jpgfilename, myOpen, myClose, myRead, mySeek, PNGDraw);
     if (rc == PNG_SUCCESS) {
-      if (settings.isDebug) Serial.printf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
-      if (settings.isDebug) Serial.printf("PNG bufferSize %d\n", png.getBufferSize());
+      DebugPrintf("image specs: (%d x %d), %d bpp, pixel type: %d\n", png.getWidth(), png.getHeight(), png.getBpp(), png.getPixelType());
+      DebugPrintf("PNG bufferSize %d\n", png.getBufferSize());
       rc = png.decode(NULL, 0);
       png.close();
     } else {
@@ -2286,7 +2316,7 @@ void PNGDraw(PNGDRAW *pDraw, bool halfSize) {
 ***************************************************************************************/
 File myfile;
 void *myOpen(const char *filename, int32_t *size) {
-  if (settings.isDebug) Serial.printf("Attempting to open %s\n", filename);
+  DebugPrintf("Attempting to open %s\n", filename);
   myfile = SPIFFS.open(filename, "r");
   *size = myfile.size();
   return &myfile;
@@ -2379,23 +2409,23 @@ void TouchCalibrate() {
   tft.calibrateTouch(calData, TFT_MAGENTA, TFT_BLACK, 15);
 
   if (settings.isDebug) {
-    Serial.println();
-    Serial.println();
-    Serial.println("// Use this calibration code in setup():");
-    Serial.print("  uint16_t calData[5] = ");
-    Serial.print("{ ");
+    DebugPrintln();
+    DebugPrintln();
+    DebugPrintln("// Use this calibration code in setup():");
+    DebugPrint("  uint16_t calData[5] = ");
+    DebugPrint("{ ");
   }
 
   for (uint8_t i = 0; i < 5; i++) {
-    if (settings.isDebug) Serial.print(calData[i]);
-    if (settings.isDebug && i < 4) Serial.print(", ");
+    DebugPrint(calData[i]);
+    if (settings.isDebug && i < 4) DebugPrint(", ");
   }
 
   if (settings.isDebug) {
-    Serial.println(" };");
-    Serial.print("  tft.setTouch(calData);");
-    Serial.println();
-    Serial.println();
+    DebugPrintln(" };");
+    DebugPrint("  tft.setTouch(calData);");
+    DebugPrintln();
+    DebugPrintln();
   }
 
   tft.fillScreen(TFT_BLACK);
