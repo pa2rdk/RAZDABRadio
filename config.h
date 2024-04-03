@@ -23,5 +23,5 @@ Settings settings = {
     0                   //isDebug
 };
 
-int screenRotation  = 1;                            // 0=0, 1=90, 2=180, 3=270
+int screenRotation  = 3;                            // 0=0, 1=90, 2=180, 3=270
 uint16_t calData[5] = { 378, 3473, 271, 3505, 7 };

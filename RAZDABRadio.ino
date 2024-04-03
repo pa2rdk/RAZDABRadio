@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.08 Aangepast aan standaard displayboard, een aantal pinnen verlegd zoek 'Sketch with standard board'
 // V1.07 Moved website to core0 and changed Serial.print* to DebugPrint*
 // V1.06 Rename HandleButton->HandleFunction and change SaveConfig
 // V1.05 Code review
@@ -128,7 +129,7 @@ const char *const audiomode[] = { mode_0, mode_1, mode_2, mode_3 };
 #define BTN_ARROW 2048
 #define BTN_NUMERIC 1024
 
-#define DISPLAYLEDPIN 33
+#define DISPLAYLEDPIN 14  //33 Sketch with standard board
 
 #define TFT_GREY 0x5AEB
 #define TFT_LIGTHYELLOW 0xFF10
@@ -138,12 +139,12 @@ const char *const audiomode[] = { mode_0, mode_1, mode_2, mode_3 };
 
 #define DAB_BAND 0
 #define DAB_INTERRUPT 26
-#define DAB_RESET 32
+#define DAB_RESET 21    //32 Sketch with standard board
 #define DAB_PWREN 27
 
 #define HSPI_MISO 35
 #define HSPI_MOSI 13
-#define HSPI_SCLK 14
+#define HSPI_SCLK 12  ////14 Sketch with standard board
 #define HSPI_SS 15
 
 typedef struct {  // WiFi Access
@@ -257,7 +258,7 @@ AsyncEventSource events("/events");
 PNG png;
 SPIClass *hspi = NULL;
 
-const byte slaveSelectPin = 25;  //Was 12 ivm second SPI;
+const byte slaveSelectPin = 22;   //25 Sketch with standard board; Was 12 ivm second SPI;
 int actualPage = 1;
 int lastPage = 2;
 int32_t keyboardNumber = 0;
