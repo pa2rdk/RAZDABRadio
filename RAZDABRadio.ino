@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.12 OTA
 // V1.08 Aangepast aan standaard displayboard, een aantal pinnen verlegd zoek 'Sketch with standard board'
 // V1.07 Moved website to core0 and changed Serial.print* to DebugPrint*
 // V1.06 Rename HandleButton->HandleFunction and change SaveConfig
@@ -96,6 +97,7 @@
 #include <PNGdec.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <RDKOTA.h>
 
 #include <pthread.h>
 #include "freertos/FreeRTOS.h"
@@ -104,6 +106,9 @@
 
 #define offsetEEPROM 32
 #define EEPROM_SIZE 4096
+
+#define OTAHOST      "https://www.rjdekok.nl/Updates/RAZDABRadio"
+#define OTAVERSION   "v1.12"
 
 #define DebugEnabled
 #ifdef DebugEnabled
@@ -247,7 +252,7 @@ const int ledFreq = 5000;
 const int ledResol = 8;
 const int ledChannelforTFT = 0;
 
-#include "rdk_config.h";  // Change to config.h
+#include "config.h";  // Change to config.h
 
 DAB Dab;
 TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
@@ -255,6 +260,7 @@ DABTime dabtime;
 WiFiMulti wifiMulti;
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
+RDKOTA rdkOTA(OTAHOST);
 PNG png;
 SPIClass *hspi = NULL;
 
@@ -380,6 +386,13 @@ void setup() {
   DebugPrintf("Wifi:%s, Pass:%s.", settings.wifiSSID, settings.wifiPass);
   DebugPrintln();
   if (Connect2WiFi()) {
+    if (rdkOTA.checkForUpdate(OTAVERSION)){
+      if (questionBox("Install update", TFT_WHITE, TFT_NAVY, 80, 80, 160, 40)){
+        DrawButton(80, 80, 160, 40, "Installing update", "", TFT_BLACK, TFT_RED, "");
+        rdkOTA.installUpdate();
+      } 
+    }
+
     wifiAvailable = true;
     DrawButton(80, 80, 160, 30, "Connected to WiFi", WiFi.SSID(), TFT_BLACK, TFT_WHITE, "");
     delay(1000);
@@ -590,7 +603,7 @@ void loop() {
     events.send(dispInfo, "DABRDS", millis());
   }
 
-  if (millis() - pressTime > 100) {
+  if (millis() - pressTime > 200) {
     uint16_t x = 0, y = 0;
     bool pressed = tft.getTouch(&x, &y);
     if (pressed) {
@@ -1329,26 +1342,30 @@ void HandleFunction(Button button, int x, int y, bool doDraw) {
     long startOffPressed = millis();
     uint16_t x = 0, y = 0;
     bool pressed = tft.getTouch(&x, &y);
-    while (pressed && millis() - startOffPressed < 6000) pressed = tft.getTouch(&x, &y);
-    if (((millis() - startOffPressed) > 5000)) {
-      if ((settings.activeBtn == FindButtonIDByName("LoadList")) && (settings.dabChannelsCount > 0)) {
-        DrawPatience(false, "Channels gereset");
-        DebugPrintf("Off pressed for %d seconds\r\n", millis() / 1000 - startOffPressed);
 
-        SPIFFS.format();
-        settings.dabChannelSelected = 0;
-        settings.dabChannelsCount = 0;
-        settings.showOnlyCachedLogos = false;
-        dabChannels = {};
-        delay(1000);
-        DrawScreen();
+    if (settings.activeBtn == FindButtonIDByName("LoadList") && settings.dabChannelsCount > 0){
+      while (pressed && millis() - startOffPressed < 6000) pressed = tft.getTouch(&x, &y);
+      if (((millis() - startOffPressed) > 5000)) {
+        if ((settings.activeBtn == FindButtonIDByName("LoadList")) && (settings.dabChannelsCount > 0)) {
+          DrawPatience(false, "Channels gereset");
+          DebugPrintf("Off pressed for %d seconds\r\n", millis() / 1000 - startOffPressed);
+
+          SPIFFS.format();
+          settings.dabChannelSelected = 0;
+          settings.dabChannelsCount = 0;
+          settings.showOnlyCachedLogos = false;
+          dabChannels = {};
+          delay(1000);
+          DrawScreen();
+        }
       }
-    }
-    if (millis() - startOffPressed < 500) {
-      isOn = false;
-      actualPage = 1;
-      DoTurnOff();
-      delay(500);
+    } else {
+      if (millis() - startOffPressed < 500) {
+        isOn = false;
+        actualPage = 1;
+        DoTurnOff();
+        delay(500);
+      }
     }
   }
 
@@ -2386,6 +2403,50 @@ void SaveSettings(AsyncWebServerRequest *request) {
   if (request->hasParam("wifiSSID")) request->getParam("wifiSSID")->value().toCharArray(settings.wifiSSID, 25);
   if (request->hasParam("wifiPass")) request->getParam("wifiPass")->value().toCharArray(settings.wifiPass, 25);
   settings.isDebug = request->hasParam("isDebug");
+}
+
+/***************************************************************************************
+**                          Draw messagebox with message
+***************************************************************************************/
+bool questionBox(const char *msg, uint16_t fgcolor, uint16_t bgcolor, int x, int y, int w, int h) {
+  uint16_t current_textcolor = tft.textcolor;
+  uint16_t current_textbgcolor = tft.textbgcolor;
+
+  //tft.loadFont(AA_FONT_SMALL);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(fgcolor, bgcolor);
+  tft.fillRoundRect(x, y, w, h, 5, fgcolor);
+  tft.fillRoundRect(x + 2, y + 2, w - 4, h - 4, 5, bgcolor);
+  tft.setTextPadding(tft.textWidth(msg));
+  tft.drawString(msg, x + 4 + w/2, y + (h / 4));
+
+  tft.fillRoundRect(x + 4, y + (h/2) - 2, (w - 12)/2, (h - 4)/2, 5, TFT_GREEN);
+  tft.setTextColor(fgcolor, TFT_GREEN);
+  tft.setTextPadding(tft.textWidth("Yes"));
+  tft.drawString("Yes", x + 4 + ((w - 12)/4),y + (h/2) - 2 + (h/4));
+  tft.fillRoundRect(x + (w/2) + 2, y + (h/2) - 2, (w - 12)/2, (h - 4)/2, 5, TFT_RED);
+  tft.setTextColor(fgcolor, TFT_RED);
+  tft.setTextPadding(tft.textWidth("No"));
+  tft.drawString("No", x + (w/2) + 2 + ((w - 12)/4),y + (h/2) - 2 + (h/4));
+  Serial.printf("Yes = x:%d,y:%d,w:%d,h:%d\r\n",x + 4, y + (h/2) - 2, (w - 12)/2, (h - 4)/2);
+  Serial.printf("No  = x:%d,y:%d,w:%d,h:%d\r\n",x + (w/2) + 2, y + (h/2) - 2, (w - 12)/2, (h - 4)/2);
+  tft.setTextColor(current_textcolor, current_textbgcolor);
+  tft.unloadFont();
+
+  uint16_t touchX = 0, touchY = 0;
+
+  long startWhile = millis();
+  while (millis()-startWhile<30000) {
+    bool pressed = tft.getTouch(&touchX, &touchY);
+    if (pressed){
+      Serial.printf("Pressed = x:%d,y:%d\r\n",touchX,touchY);
+      if (touchY>=y + (h/2) - 2 && touchY<=y + (h/2) - 2 + ((h - 4)/2)){
+        if (touchX>=x + 4 && touchX<=x + 4 + ((w - 12)/2)) return true;
+        if (touchX>=x + (w/2) + 2 && touchX<=x + (w/2) + 2 + ((w - 12)/2)) return false;
+      }
+    }
+  }
+  return false;
 }
 
 /***************************************************************************************
