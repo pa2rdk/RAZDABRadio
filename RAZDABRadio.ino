@@ -1,4 +1,5 @@
 ////////////////////////////////////////////////////////////
+// V1.13 Better dialogs, Off button repared
 // V1.12 OTA
 // V1.08 Aangepast aan standaard displayboard, een aantal pinnen verlegd zoek 'Sketch with standard board'
 // V1.07 Moved website to core0 and changed Serial.print* to DebugPrint*
@@ -108,7 +109,7 @@
 #define EEPROM_SIZE 4096
 
 #define OTAHOST      "https://www.rjdekok.nl/Updates/RAZDABRadio"
-#define OTAVERSION   "v1.12"
+#define OTAVERSION   "v1.13"
 
 #define DebugEnabled
 #ifdef DebugEnabled
@@ -312,11 +313,11 @@ void setup() {
   pinMode(DISPLAYLEDPIN, OUTPUT);
   digitalWrite(DISPLAYLEDPIN, 0);
 
-  if (settings.isDebug) {
-    Serial.begin(115200);
-    while (!Serial)
-      ;
-  }
+#ifdef DebugEnabled
+  Serial.begin(115200);
+  while (!Serial)
+    ;
+#endif
 
   DebugPrint(F("PI4RAZ DAB\n\n"));
   DebugPrint(F("Initializing....."));
@@ -676,9 +677,9 @@ void DrawFrequency() {
   if (actualPage < lastPage) {
     tft.fillRect(0, 0, 320, 99, TFT_BLACK);
     if (settings.isDab && Dab.freq_index > 0) {
-      DrawPatience(false, "Zoek logo");
+      DrawButton(80, 20, 160, 30, "Zoek logo", "", TFT_BLACK, TFT_BLUE, "");
       GetDABLogo(settings.dabServiceID, Dab.EnsembleID, Dab.ECC, settings.showOnlyCachedLogos);
-      tft.fillRect(0, 0, 180, 99, TFT_BLACK);
+      tft.fillRect(0, 0, 190, 99, TFT_BLACK);
       tft.setTextColor(TFT_WHITE, TFT_BLACK);
       tft.setTextDatum(ML_DATUM);
       sprintf(buf, "%03d.%03d MHz", (uint16_t)(Dab.freq_khz(Dab.freq_index) / 1000), (uint16_t)(Dab.freq_khz(Dab.freq_index) % 1000));
@@ -729,14 +730,16 @@ void DrawPatience(bool onBottom, String message) {
       tft.fillRect(0, 0, 320, 134, TFT_BLACK);
     else
       tft.fillRect(0, 0, 320, 98, TFT_BLACK);
-    tft.drawString(message, 0, 30, 4);
+    //tft.drawString(message, 0, 30, 4);
+    DrawButton(80, 20, 160, 30, message, "", TFT_BLACK, TFT_RED, "");
     message.toCharArray(buf, message.length() + 1);
     events.send(buf, "DABName", millis());
     events.send("", "DABRDS", millis());
     events.send("", "DABLogo", millis());
   } else {
     tft.fillRect(0, 136, 320, 240, TFT_BLACK);
-    tft.drawString(message, 0, 160, 4);
+    //tft.drawString(message, 0, 160, 4);
+    DrawButton(80, 160, 160, 30, message, "", TFT_BLACK, TFT_RED, "");
   }
 }
 
@@ -1018,6 +1021,7 @@ void HandleFunction(Button button, int x, int y) {
 }
 
 void HandleFunction(Button button, int x, int y, bool doDraw) {
+  DebugPrintln(button.name);
   if (button.name == "ToRight") {
     if (settings.activeBtn == FindButtonIDByName("Tune")) {
       if (doDraw) DrawPatience();
@@ -1200,18 +1204,19 @@ void HandleFunction(Button button, int x, int y, bool doDraw) {
 
   if (button.name == "Info") {
     if (settings.activeBtn == FindButtonIDByName("LoadList")) {
+      tft.fillRect(0, 136, 320, 240, TFT_BLACK);
       settings.dabChannelSelected = 0;
       qsort(dabChannels, settings.dabChannelsCount, sizeof(DABChannel), SortOnDabChannel);
-      DrawPatience(true, "Ophalen logo's");
       for (int i = 0; i < settings.dabChannelsCount - 1; i++) {
-        sprintf(buf, "Ophalen logo's (%d/%d)", i, settings.dabChannelsCount - 1);
-        DrawPatience(true, buf);
+        sprintf(buf, "Channel (%d/%d)", i, settings.dabChannelsCount - 1);
+        DrawButton(80, 160, 160, 30, "Ophalen logo's...", buf, TFT_BLACK, TFT_RED, "");
         settings.dabChannelSelected = i;
         SetRadioFromList(settings.dabChannelSelected);
         delay(1000);
       }
       qsort(dabChannels, settings.dabChannelsCount, sizeof(DABChannel), SortOnDabName);
       settings.showOnlyCachedLogos = true;
+      tft.fillRect(0, 136, 320, 240, TFT_BLACK);
       if (doDraw) DrawButtons();
     } else {
       actualPage = lastPage;
@@ -1344,7 +1349,16 @@ void HandleFunction(Button button, int x, int y, bool doDraw) {
     bool pressed = tft.getTouch(&x, &y);
 
     if (settings.activeBtn == FindButtonIDByName("LoadList") && settings.dabChannelsCount > 0){
-      while (pressed && millis() - startOffPressed < 6000) pressed = tft.getTouch(&x, &y);
+      while (pressed){
+        pressed = tft.getTouch(&x, &y);
+        DebugPrint(".");
+        delay(100);
+        if (((millis() - startOffPressed) > 5000)) {
+          tft.fillRect(0, 0, 320, 98, TFT_BLACK);
+          DrawButton(80, 20, 160, 30, "Release to reset", "", TFT_BLACK, TFT_RED, "");
+        }
+      } 
+        
       if (((millis() - startOffPressed) > 5000)) {
         if ((settings.activeBtn == FindButtonIDByName("LoadList")) && (settings.dabChannelsCount > 0)) {
           DrawPatience(false, "Channels gereset");
@@ -1562,8 +1576,8 @@ void LoadList() {
   dabChannels = 0;
   settings.dabChannelsCount = 0;
   for (uint8_t i = 0; i < DAB_FREQS; i++) {
-    sprintf(buf, "Even geduld...%d/%d (%d)", i, DAB_FREQS - 1, settings.dabChannelsCount);
-    tft.drawString(buf, 0, 30, 4);
+    sprintf(buf, "Scan %d/%d (%d)", i, DAB_FREQS - 1, settings.dabChannelsCount);
+    DrawButton(60, 20, 200, 30, "Even geduld...", buf, TFT_BLACK, TFT_RED, "");
     DebugPrintf("ID:%d\r\n", i);
     Dab.tune(i);
     actualDabChannel = i;
@@ -2267,7 +2281,10 @@ char *GetLogoName(uint32_t id) {
   String s;
   if (SPIFFS.exists(pngfilename)) sprintf(logoBuf, "<img width=\"128\" height=\"128\" src=\"/dablogo?plaatje=%s\">", pngfilename);
   else if (SPIFFS.exists(jpgfilename)) sprintf(logoBuf, "<img width=\"128\" height=\"128\" src=\"/dablogo?plaatje=%s\">", jpgfilename);
-  else strcpy(logoBuf, "<h4>Dablogo<br>not<br>available</h4>");
+  else{
+    strcpy(logoBuf, "<h4>Dablogo<br>not<br>available</h4>");
+    tft.fillRect(190, 0, 128, 128, TFT_BLACK);
+  } 
   DebugPrintln(logoBuf);
   return logoBuf;
 }
