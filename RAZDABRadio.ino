@@ -1,5 +1,6 @@
 ////////////////////////////////////////////////////////////
-// V1.13 Better dialogs, Off button repared
+// V1.14 Hardware Mute on Pin 33
+// V1.13 Better dialogs, Off button repaired
 // V1.12 OTA
 // V1.08 Aangepast aan standaard displayboard, een aantal pinnen verlegd zoek 'Sketch with standard board'
 // V1.07 Moved website to core0 and changed Serial.print* to DebugPrint*
@@ -109,7 +110,7 @@
 #define EEPROM_SIZE 4096
 
 #define OTAHOST      "https://www.rjdekok.nl/Updates/RAZDABRadio"
-#define OTAVERSION   "v1.13"
+#define OTAVERSION   "v1.14"
 
 #define DebugEnabled
 #ifdef DebugEnabled
@@ -150,8 +151,9 @@ const char *const audiomode[] = { mode_0, mode_1, mode_2, mode_3 };
 
 #define HSPI_MISO 35
 #define HSPI_MOSI 13
-#define HSPI_SCLK 12  ////14 Sketch with standard board
+#define HSPI_SCLK 12    //14 Sketch with standard board
 #define HSPI_SS 15
+#define MUTE_PIN  33
 
 typedef struct {  // WiFi Access
   const char *SSID;
@@ -312,6 +314,9 @@ char mime[32];
 void setup() {
   pinMode(DISPLAYLEDPIN, OUTPUT);
   digitalWrite(DISPLAYLEDPIN, 0);
+
+  pinMode(MUTE_PIN, OUTPUT);
+  digitalWrite(MUTE_PIN, 0);
 
 #ifdef DebugEnabled
   Serial.begin(115200);
@@ -847,6 +852,7 @@ Button FindButtonInfo(Button button) {
     if (settings.isMuted == 1) strcpy(button.waarde, "Right");
     if (settings.isMuted == 2) strcpy(button.waarde, "Left");
     if (settings.isMuted == 3) strcpy(button.waarde, "Muted");
+
     button.bottomColor = settings.isMuted ? TFT_RED : TFT_BLACK;
     sprintf(buf, "%s", WebMuteStatus());
     events.send(buf, "myMute", millis());
@@ -1065,6 +1071,7 @@ void HandleFunction(Button button, int x, int y, bool doDraw) {
       if (settings.volume < 63) settings.volume++;
       Dab.vol(settings.volume);
       settings.isMuted = 0;
+      SetMute();
       if (doDraw) DrawButton("Vol");
       if (doDraw) DrawButton("Mute");
     } else if (settings.activeBtn == FindButtonIDByName("MEM")) {
@@ -1129,6 +1136,7 @@ void HandleFunction(Button button, int x, int y, bool doDraw) {
       if (settings.volume > 0) settings.volume--;
       Dab.vol(settings.volume);
       settings.isMuted = 0;
+      SetMute();
       if (doDraw) DrawButton("Vol");
       if (doDraw) DrawButton("Mute");
     } else if (settings.activeBtn == FindButtonIDByName("MEM")) {
@@ -1612,6 +1620,7 @@ void SetMute() {
   if (settings.isMuted == 1) Dab.mute(true, false);
   if (settings.isMuted == 2) Dab.mute(false, true);
   if (settings.isMuted == 3) Dab.mute(true, true);
+  digitalWrite(MUTE_PIN, settings.isMuted == 3?1:0);
 }
 
 /***************************************************************************************
@@ -1621,6 +1630,7 @@ void DoTurnOff() {
   ledcWrite(ledChannelforTFT, 255);
   tft.fillScreen(TFT_BLACK);
   Dab.mute(1, 1);
+  digitalWrite(MUTE_PIN, 1);
 }
 
 void WaitForWakeUp() {
