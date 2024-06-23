@@ -192,6 +192,24 @@ const char settings_html[] PROGMEM = R"rawliteral(
 
           <tr>
             <td style="text-align:right;font-size: medium;">
+              Rotate screen:
+            </td>
+            <td style="text-align:left;font-size: medium;">
+              <input type="checkbox" name="rotateScreen" value="rotateScreen" %rotateScreen%>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="text-align:right;font-size: medium;">
+              Rotate touch:
+            </td>
+            <td style="text-align:left;font-size: medium;">
+              <input type="checkbox" name="rotateTouch" value="rotateTouch" %rotateTouch%>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="text-align:right;font-size: medium;">
               Debugmode:
             </td>
             <td style="text-align:left;font-size: medium;">

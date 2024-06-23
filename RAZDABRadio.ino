@@ -1,4 +1,6 @@
 ////////////////////////////////////////////////////////////
+// V1.16 Touch and Screen rotatable in WiFi settings 
+// V1.15 Touch turned
 // V1.14 Hardware Mute on Pin 33
 // V1.13 Better dialogs, Off button repaired
 // V1.12 OTA
@@ -110,7 +112,7 @@
 #define EEPROM_SIZE 4096
 
 #define OTAHOST      "https://www.rjdekok.nl/Updates/RAZDABRadio"
-#define OTAVERSION   "v1.14"
+#define OTAVERSION   "v1.16"
 
 #define DebugEnabled
 #ifdef DebugEnabled
@@ -210,6 +212,8 @@ typedef struct {
   uint8_t dabChannelsCount;
   uint8_t dabChannelSelected;
   bool showOnlyCachedLogos;
+  bool rotateScreen;
+  bool rotateTouch;
   bool isDebug;
 } Settings;
 
@@ -344,8 +348,6 @@ void setup() {
 
   tft.init();
   tft.setRotation(screenRotation);
-
-  tft.setTouch(calData);
   tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 
   //DAB Setup
@@ -380,6 +382,10 @@ void setup() {
   LoadConfig();
   LoadMemories();
   LoadStationList();
+
+  tft.setRotation(settings.rotateScreen?1:3);
+  if (settings.rotateTouch) calData[4]=1;
+  tft.setTouch(calData);
 
   // add Wi-Fi networks from All_Settings.h
   for (int i = 0; i < sizeof(wifiNetworks) / sizeof(wifiNetworks[0]); i++) {
@@ -2399,6 +2405,8 @@ String processor(const String &var) {
   }
   if (var == "style") return css_html;
   if (var == "DABLogo") return GetLogoName(settings.dabServiceID);
+  if (var == "rotateScreen") return settings.rotateScreen ? "checked" : "";  
+  if (var == "rotateTouch") return settings.rotateTouch ? "checked" : "";    
   if (var == "isDebug") return settings.isDebug ? "checked" : "";
   if (var == "stationList") return WebStationList();
   if (var == "myMute") return WebMuteStatus();
@@ -2429,6 +2437,8 @@ String WebMuteStatus() {
 void SaveSettings(AsyncWebServerRequest *request) {
   if (request->hasParam("wifiSSID")) request->getParam("wifiSSID")->value().toCharArray(settings.wifiSSID, 25);
   if (request->hasParam("wifiPass")) request->getParam("wifiPass")->value().toCharArray(settings.wifiPass, 25);
+  settings.rotateScreen = request->hasParam("rotateScreen");
+  settings.rotateTouch = request->hasParam("rotateTouch");    
   settings.isDebug = request->hasParam("isDebug");
 }
 

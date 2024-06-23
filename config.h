@@ -20,6 +20,8 @@ Settings settings = {
     0,                  //dabChannelsCount
     0,                  //dabChannelSelected
     0,                  //showOnlyCachedLogos
+    0,                  //rotateScreen
+    0,                  //rotateTouch
     0                   //isDebug
 };
 
